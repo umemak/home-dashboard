@@ -1,0 +1,639 @@
+/* ========================================
+   おうちダッシュボード - iPad Mini 2最適化
+   1024x768 landscape, dark theme
+   ======================================== */
+
+:root {
+  --bg-primary:   #0f0e17;
+  --bg-secondary: #1a1a2e;
+  --bg-panel:     #16213e;
+  --bg-card:      #0f3460;
+  --accent:       #e94560;
+  --accent2:      #533483;
+  --text-primary: #fffffe;
+  --text-muted:   #a7a9be;
+  --border:       #2a2a4a;
+  --header-h:     72px;
+  --footer-h:     48px;
+  --radius:       12px;
+  --shadow:       0 4px 24px rgba(0,0,0,.5);
+
+  --memo-yellow:  #ffd93d;
+  --memo-green:   #6bcb77;
+  --memo-blue:    #4d96ff;
+  --memo-pink:    #ff6b9d;
+  --memo-orange:  #ff9f43;
+  --memo-purple:  #a29bfe;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none; /* キオスクモード: スクロール無効 */
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── ヘッダー ──────────────────────────────────── */
+#main-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--header-h);
+  min-height: var(--header-h);
+  padding: 0 20px;
+  background: linear-gradient(135deg, var(--bg-secondary), var(--bg-panel));
+  border-bottom: 2px solid var(--accent);
+  box-shadow: 0 2px 20px rgba(233,69,96,.3);
+}
+
+#clock-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 200px;
+}
+
+#clock {
+  font-size: 2.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 2px;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+#date-display {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+#header-center {
+  text-align: center;
+  flex: 1;
+}
+
+#family-name {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(233,69,96,.5);
+}
+
+#weather-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 160px;
+  justify-content: flex-end;
+}
+
+#weather-icon { color: #74b9ff; font-size: 1.2rem; }
+
+#weather-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+#weather-temp {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+#weather-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* ── メインコンテンツ ─────────────────────────── */
+#main-content {
+  display: grid;
+  grid-template-columns: 300px 1fr 260px;
+  gap: 12px;
+  padding: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel {
+  background: var(--bg-panel);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,.2);
+  flex-shrink: 0;
+}
+
+.panel-header h2 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: all .2s;
+}
+.icon-btn:hover, .icon-btn:active {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+.add-btn {
+  color: var(--accent);
+  font-size: 1rem;
+}
+
+/* ── カレンダー ──────────────────────────────── */
+#calendar-section { grid-row: span 1; }
+
+#cal-title {
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+  flex: 1;
+  color: var(--text-primary);
+}
+
+#calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  padding: 8px;
+  flex-shrink: 0;
+}
+
+.cal-day-header {
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  padding: 4px 0;
+  font-weight: 600;
+}
+
+.cal-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  position: relative;
+  transition: background .15s;
+  padding: 2px;
+  min-height: 32px;
+}
+
+.cal-day:hover { background: var(--border); }
+.cal-day.today { background: var(--accent); color: #fff; font-weight: 700; }
+.cal-day.other-month { color: var(--border); }
+.cal-day.sunday  { color: #ff7675; }
+.cal-day.saturday{ color: #74b9ff; }
+.cal-day.today.sunday, .cal-day.today.saturday { color: #fff; }
+
+.cal-dot-row {
+  display: flex;
+  gap: 2px;
+  position: absolute;
+  bottom: 2px;
+}
+
+.cal-dot {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+}
+.cal-dot.blue   { background: #4d96ff; }
+.cal-dot.green  { background: #6bcb77; }
+.cal-dot.pink   { background: #ff6b9d; }
+.cal-dot.orange { background: #ff9f43; }
+.cal-dot.purple { background: #a29bfe; }
+
+#event-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.event-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 4px;
+  background: var(--bg-card);
+  border-radius: 8px;
+  border-left: 3px solid;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+.event-item:active { opacity: .7; }
+
+.event-item.blue   { border-color: #4d96ff; }
+.event-item.green  { border-color: #6bcb77; }
+.event-item.pink   { border-color: #ff6b9d; }
+.event-item.orange { border-color: #ff9f43; }
+.event-item.purple { border-color: #a29bfe; }
+
+.event-date-badge {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  min-width: 44px;
+}
+
+.event-title {
+  flex: 1;
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-time {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.event-del-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  opacity: 0;
+  transition: opacity .2s;
+  font-size: 0.8rem;
+}
+.event-item:hover .event-del-btn { opacity: 1; }
+
+/* ── メモ ────────────────────────────────────── */
+#memo-section { }
+
+#memo-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.memo-card {
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  position: relative;
+  cursor: pointer;
+  transition: transform .15s;
+  word-break: break-all;
+  border: 2px solid transparent;
+}
+.memo-card:active { transform: scale(.98); }
+.memo-card.pinned { border-color: rgba(255,255,255,.4); }
+
+.memo-card.yellow { background: #2d2a00; color: var(--memo-yellow); }
+.memo-card.green  { background: #002d0e; color: var(--memo-green);  }
+.memo-card.blue   { background: #00184a; color: var(--memo-blue);   }
+.memo-card.pink   { background: #2d001a; color: var(--memo-pink);   }
+.memo-card.orange { background: #2d1400; color: var(--memo-orange); }
+
+.memo-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.memo-btn {
+  background: rgba(255,255,255,.1);
+  border: none;
+  color: inherit;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.memo-btn:hover { background: rgba(255,255,255,.2); }
+
+/* ── タスク ──────────────────────────────────── */
+#task-section { }
+
+#task-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+
+.task-check {
+  width: 20px; height: 20px;
+  border: 2px solid var(--text-muted);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all .2s;
+}
+
+.task-item.done .task-check {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.task-item.done .task-check::after {
+  content: '✓';
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.task-info { flex: 1; min-width: 0; }
+
+.task-title {
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-item.done .task-title {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.task-due {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.task-due.overdue { color: #ff7675; }
+
+.task-priority {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.task-priority.high   { background: #ff7675; }
+.task-priority.normal { background: var(--text-muted); }
+.task-priority.low    { background: #55efc4; }
+
+.task-del-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  opacity: 0;
+  transition: opacity .2s;
+  font-size: 0.8rem;
+}
+.task-item:hover .task-del-btn { opacity: 1; }
+
+/* ── フッター ─────────────────────────────────── */
+#main-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--footer-h);
+  min-height: var(--footer-h);
+  padding: 0 16px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+}
+
+.footer-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all .2s;
+}
+.footer-btn:hover, .footer-btn:active {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+#footer-status { font-size: 0.75rem; color: var(--text-muted); }
+
+/* ── モーダル ─────────────────────────────────── */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.modal.hidden { display: none; }
+
+.modal-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  min-width: 320px;
+  max-width: 90vw;
+  box-shadow: 0 8px 40px rgba(0,0,0,.8);
+}
+
+.modal-box h3 {
+  font-size: 1.1rem;
+  margin-bottom: 16px;
+  color: var(--accent);
+}
+
+.modal-input {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  margin-bottom: 10px;
+  outline: none;
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: auto;
+}
+.modal-input:focus { border-color: var(--accent); }
+
+textarea.modal-input {
+  resize: none;
+  font-family: inherit;
+}
+
+textarea#memo-content {
+  -webkit-user-select: text;
+  user-select: text;
+  touch-action: auto;
+}
+
+.settings-box label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.settings-box label .modal-input { margin-top: 4px; }
+
+.settings-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.settings-note a { color: var(--memo-blue); }
+
+.color-picker, .priority-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.color-btn, .prio-btn {
+  border: 2px solid transparent;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  color: #000;
+  font-weight: 600;
+  transition: transform .15s;
+}
+.color-btn:active { transform: scale(.9); }
+.color-btn.selected, .prio-btn.selected, .prio-btn.active {
+  border-color: #fff;
+  transform: scale(1.1);
+}
+.prio-btn {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover { background: #c0392b; }
+.btn-secondary {
+  background: var(--border);
+  color: var(--text-muted);
+}
+.btn-secondary:hover { background: var(--bg-card); }
+
+/* ── スクロールバー ───────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+/* ── タッチ操作用調整 ─────────────────────────── */
+.modal-input, textarea, input, select {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  touch-action: auto !important;
+}
+
+/* ── 空状態 ──────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+.empty-state i { font-size: 2rem; display: block; margin-bottom: 8px; opacity: .4; }
+
+/* ── アニメーション ───────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.memo-card, .task-item, .event-item { animation: fadeIn .2s ease; }
+
+/* ── iPad Mini 2 (768px height) 調整 ────────── */
+@media (max-height: 800px) {
+  #clock { font-size: 2rem; }
+  #main-content { gap: 8px; padding: 8px; }
+  .panel-header { padding: 7px 12px; }
+  .cal-day { min-height: 28px; font-size: 0.76rem; }
+}
