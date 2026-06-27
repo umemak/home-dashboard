@@ -822,18 +822,25 @@ app.get('/', async (c) => {
       <span id="family-name">おうちダッシュボード</span>
     </div>
     <div id="weather-section">
-      <div id="weather-today">
+      <div id="weather-today" title="タップで詳細表示">
         <div id="weather-icon"><i class="fas fa-cloud fa-2x"></i></div>
         <div id="weather-info">
           <span id="weather-temp">--°C</span>
           <span id="weather-minmax">--/--</span>
           <span id="weather-desc">--</span>
         </div>
+        <span id="weather-toggle-icon" class="weather-toggle-icon"><i class="fas fa-chevron-down"></i></span>
       </div>
       <div id="weather-right">
         <div id="weather-forecast"></div>
         <div id="weather-hourly"></div>
       </div>
+    </div>
+
+    <!-- スマホ用天気詳細パネル -->
+    <div id="weather-detail-panel" class="hidden">
+      <div id="weather-detail-forecast"></div>
+      <div id="weather-detail-hourly"></div>
     </div>
   </header>
 

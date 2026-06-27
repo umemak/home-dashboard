@@ -248,6 +248,82 @@ html, body {
   min-height: 0.8em;
 }
 
+/* ── 天気詳細パネル（スマホ用トグル） ────────── */
+#weather-detail-panel {
+  display: none; /* JS で show/hide */
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 14px;
+  gap: 8px;
+  animation: slideDown .2s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#weather-detail-panel.hidden { display: none !important; }
+
+/* 週間予報（詳細パネル内） */
+#weather-detail-forecast {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+#weather-detail-forecast::-webkit-scrollbar { display: none; }
+
+#weather-detail-forecast .fc-day {
+  min-width: 58px;
+  padding: 6px 6px;
+  gap: 3px;
+}
+#weather-detail-forecast .fc-label { font-size: 0.72rem; }
+#weather-detail-forecast .fc-icon  { font-size: 1.1rem; }
+#weather-detail-forecast .fc-pop   { font-size: 0.68rem; }
+#weather-detail-forecast .fc-temps { font-size: 0.76rem; }
+
+/* 3時間ごと予報（詳細パネル内）*/
+#weather-detail-hourly {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+#weather-detail-hourly::-webkit-scrollbar { display: none; }
+
+#weather-detail-hourly .hl-sep {
+  writing-mode: vertical-rl;
+  font-size: 0.65rem;
+}
+
+#weather-detail-hourly .hl-item {
+  min-width: 44px;
+  padding: 4px 6px;
+  gap: 2px;
+}
+#weather-detail-hourly .hl-hour { font-size: 0.68rem; }
+#weather-detail-hourly .hl-icon { font-size: 0.95rem; }
+#weather-detail-hourly .hl-temp { font-size: 0.78rem; }
+#weather-detail-hourly .hl-pop  { font-size: 0.65rem; }
+
+/* トグルアイコン */
+.weather-toggle-icon {
+  display: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-left: 4px;
+  transition: transform .2s;
+}
+.weather-toggle-icon.open { transform: rotate(180deg); }
+
 /* ── タブナビ（スマホ用・デフォルト非表示） ──── */
 #tab-nav {
   display: none;
@@ -801,7 +877,10 @@ textarea#memo-content {
   /* ヘッダー: 天気予報行を非表示にコンパクト化 */
   #clock { font-size: 1.8rem; }
   #weather-right { display: none; }
-  #weather-today { border-right: none; padding-right: 0; }
+  #weather-today { border-right: none; padding-right: 0; cursor: pointer; }
+  .weather-toggle-icon { display: inline-flex; }
+  #weather-detail-panel { display: flex; }
+  #weather-detail-panel.hidden { display: none !important; }
 
   /* タブナビ表示 */
   #tab-nav {
@@ -873,10 +952,13 @@ textarea#memo-content {
   #family-name { font-size: 1rem; }
   #header-center { display: none; } /* 家族名は省略 */
   #weather-right { display: none; } /* 週間予報省略 */
-  #weather-today { border-right: none; padding-right: 0; }
+  #weather-today { border-right: none; padding-right: 0; cursor: pointer; }
   #weather-temp { font-size: 1.1rem; }
   #weather-icon { font-size: 1rem; }
   #weather-minmax { display: none; }
+  .weather-toggle-icon { display: inline-flex; }
+  #weather-detail-panel { display: flex; }
+  #weather-detail-panel.hidden { display: none !important; }
 
   /* タブナビ */
   #tab-nav {

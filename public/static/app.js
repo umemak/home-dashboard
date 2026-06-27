@@ -115,61 +115,91 @@ document.addEventListener('DOMContentLoaded', function() {
       $('weather-minmax').textContent = '↑' + cur.temp_max + ' ↓' + cur.temp_min;
       $('weather-desc').textContent = cur.description;
 
-      // 週間予報
-      var fc = $('weather-forecast');
-      fc.innerHTML = '';
-      res.forecast.forEach(function(day, i) {
-        var date = new Date(day.date + 'T00:00:00');
-        var wd = WEEKDAYS_SHORT[date.getDay()];
-        var label = i === 0 ? '今日' : (i === 1 ? '明日' : (date.getMonth()+1) + '/' + date.getDate() + '(' + wd + ')');
-        var ic = weatherIcon(day.weather);
-        var popHtml = day.pop > 0
-          ? '<span class="fc-pop">' + day.pop + '%</span>'
-          : '';
-        var el = document.createElement('div');
-        el.className = 'fc-day' + (i === 0 ? ' fc-today' : '');
-        el.innerHTML =
-          '<div class="fc-label">' + label + '</div>' +
-          '<i class="fas ' + ic + ' fc-icon"></i>' +
-          popHtml +
-          '<div class="fc-temps">' +
-            '<span class="fc-max">' + day.temp_max + '</span>' +
-            '<span class="fc-min">' + day.temp_min + '</span>' +
-          '</div>';
-        fc.appendChild(el);
-      });
 
       // 3時間ごと予報（今日・明日）
-      var hl = $('weather-hourly');
-      hl.innerHTML = '';
-      if (res.hourly && res.hourly.length) {
-        var nowDate = new Date();
-        var nowJSTH = (nowDate.getUTCHours() + 9) % 24;
+      var nowDate = new Date();
+      var nowJSTH = (nowDate.getUTCHours() + 9) % 24;
+
+      function buildHourlyItems(container, hourlyData, todayDate) {
+        container.innerHTML = '';
+        if (!hourlyData || !hourlyData.length) return;
         var prevDate = '';
-        res.hourly.forEach(function(h) {
-          // 過去の時間はスキップ（今日のみ）
-          if (h.date === res.forecast[0].date && h.hour < nowJSTH) return;
+        hourlyData.forEach(function(h) {
+          if (h.date === todayDate && h.hour < nowJSTH) return;
           var ic = weatherIcon(h.weather);
-          var el = document.createElement('div');
-          // 日付ラベル（今日→明日 の切り替え時に挿入）
           if (h.date !== prevDate) {
             var sep = document.createElement('div');
             sep.className = 'hl-sep';
-            sep.textContent = h.date === res.forecast[0].date ? '今日' : '明日';
-            hl.appendChild(sep);
+            sep.textContent = h.date === todayDate ? '今日' : '明日';
+            container.appendChild(sep);
             prevDate = h.date;
           }
+          var el = document.createElement('div');
           el.className = 'hl-item';
           el.innerHTML =
             '<div class="hl-hour">' + String(h.hour).padStart(2,'0') + '時</div>' +
             '<i class="fas ' + ic + ' hl-icon"></i>' +
             '<div class="hl-temp">' + h.temp + '°</div>' +
             (h.pop > 0 ? '<div class="hl-pop">' + h.pop + '%</div>' : '<div class="hl-pop"></div>');
-          hl.appendChild(el);
+          container.appendChild(el);
         });
       }
+
+      function buildForecastItems(container, forecastData) {
+        container.innerHTML = '';
+        forecastData.forEach(function(day, i) {
+          var date = new Date(day.date + 'T00:00:00');
+          var wd = WEEKDAYS_SHORT[date.getDay()];
+          var label = i === 0 ? '今日' : (i === 1 ? '明日' : (date.getMonth()+1) + '/' + date.getDate() + '(' + wd + ')');
+          var ic = weatherIcon(day.weather);
+          var popHtml = day.pop > 0 ? '<span class="fc-pop">' + day.pop + '%</span>' : '';
+          var el = document.createElement('div');
+          el.className = 'fc-day' + (i === 0 ? ' fc-today' : '');
+          el.innerHTML =
+            '<div class="fc-label">' + label + '</div>' +
+            '<i class="fas ' + ic + ' fc-icon"></i>' +
+            popHtml +
+            '<div class="fc-temps"><span class="fc-max">' + day.temp_max + '</span><span class="fc-min">' + day.temp_min + '</span></div>';
+          container.appendChild(el);
+        });
+      }
+
+      var todayDate = res.forecast.length ? res.forecast[0].date : '';
+
+      // ヘッダー内（PC/iPad用）
+      buildForecastItems($('weather-forecast'), res.forecast);
+      buildHourlyItems($('weather-hourly'), res.hourly, todayDate);
+
+      // スマホ詳細パネル用
+      buildForecastItems($('weather-detail-forecast'), res.forecast);
+      buildHourlyItems($('weather-detail-hourly'), res.hourly, todayDate);
+
     } catch(e) {}
   }
+
+  // ─ 天気トグル（スマホ用）────────────────────────
+  (function() {
+    var panel = $('weather-detail-panel');
+    var toggleIcon = $('weather-toggle-icon');
+    var weatherToday = $('weather-today');
+    if (!panel || !weatherToday) return;
+
+    on(weatherToday, 'click', function() {
+      var isOpen = !panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', isOpen);
+      if (toggleIcon) toggleIcon.classList.toggle('open', !isOpen);
+    });
+
+    // パネル外タップで閉じる
+    document.addEventListener('click', function(e) {
+      if (!panel.classList.contains('hidden') &&
+          !weatherToday.contains(e.target) &&
+          !panel.contains(e.target)) {
+        panel.classList.add('hidden');
+        if (toggleIcon) toggleIcon.classList.remove('open');
+      }
+    });
+  })();
 
   // ─ 設定 ──────────────────────────────────────
   async function loadSettings() {
