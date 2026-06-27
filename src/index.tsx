@@ -37,7 +37,7 @@ async function requireAuth(c: any, next: any) {
     return c.redirect('/login')
   }
   const session = await c.env.DB.prepare(
-    'SELECT * FROM sessions WHERE token = ? AND expires_at > CURRENT_TIMESTAMP AND used_at IS NULL'
+    'SELECT * FROM sessions WHERE token = ? AND expires_at > CURRENT_TIMESTAMP'
   ).bind(token).first() as any
 
   if (!session) {
