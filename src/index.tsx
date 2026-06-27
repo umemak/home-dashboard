@@ -692,10 +692,11 @@ app.get('/api/weather/forecast', async (c) => {
   const cur = await curRes.json() as any
   const fc  = await fcRes.json() as any
 
-  // 今日の日付(現地時間基準)
-  const todayStr = new Date().toISOString().slice(0, 10)
+  // 日本時間 (UTC+9) で今日の日付を取得
+  const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const todayStr = nowJST.toISOString().slice(0, 10)
 
-  // 5日分: 各日の12:00のデータを優先、なければその日の最初のデータ
+  // 日別マップ作成
   const dayMap: Record<string, any[]> = {}
   for (const item of fc.list as any[]) {
     const d = item.dt_txt.slice(0, 10)
@@ -703,6 +704,7 @@ app.get('/api/weather/forecast', async (c) => {
     dayMap[d].push(item)
   }
 
+  // 5日分の日別予報
   const days = Object.keys(dayMap).sort().slice(0, 6).map(date => {
     const items = dayMap[date]
     const noon = items.find((i: any) => i.dt_txt.includes('12:00:00')) || items[0]
@@ -713,9 +715,36 @@ app.get('/api/weather/forecast', async (c) => {
       temp_min: Math.round(Math.min(...temps)),
       weather: noon.weather[0].main,
       description: noon.weather[0].description,
-      pop: Math.round((noon.pop || 0) * 100), // 降水確率%
+      pop: Math.round((noon.pop || 0) * 100),
     }
   })
+
+  // 今日・明日の3時間ごと予報（最大16件 = 2日分）
+  const nowHourJST = nowJST.getUTCHours() // JSTの現在時刻(時)
+  const tomorrowStr = new Date(Date.now() + 9 * 60 * 60 * 1000 + 86400000).toISOString().slice(0, 10)
+  const hourly = (fc.list as any[])
+    .filter((item: any) => {
+      const d = item.dt_txt.slice(0, 10)
+      return d === todayStr || d === tomorrowStr
+    })
+    .slice(0, 16)
+    .map((item: any) => {
+      // dt_txt は UTC なので JST に変換 (+9h)
+      const utcHour = parseInt(item.dt_txt.slice(11, 13))
+      const jstHour = (utcHour + 9) % 24
+      const dateUTC = item.dt_txt.slice(0, 10)
+      // JST日付: UTC時+9が24を超えたら翌日
+      const isNextDay = (utcHour + 9) >= 24
+      return {
+        date: isNextDay ? tomorrowStr : dateUTC,
+        hour: jstHour,
+        temp: Math.round(item.main.temp),
+        weather: item.weather[0].main,
+        description: item.weather[0].description,
+        pop: Math.round((item.pop || 0) * 100),
+        rain3h: item.rain ? Math.round((item.rain['3h'] || 0) * 10) / 10 : 0,
+      }
+    })
 
   return c.json({
     current: {
@@ -728,6 +757,7 @@ app.get('/api/weather/forecast', async (c) => {
       city: cur.name,
     },
     forecast: days,
+    hourly,
   })
 })
 
@@ -790,7 +820,10 @@ app.get('/', async (c) => {
           <span id="weather-desc">--</span>
         </div>
       </div>
-      <div id="weather-forecast"></div>
+      <div id="weather-right">
+        <div id="weather-forecast"></div>
+        <div id="weather-hourly"></div>
+      </div>
     </div>
   </header>
 

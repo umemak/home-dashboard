@@ -125,6 +125,36 @@ document.addEventListener('DOMContentLoaded', function() {
           '</div>';
         fc.appendChild(el);
       });
+
+      // 3時間ごと予報（今日・明日）
+      var hl = $('weather-hourly');
+      hl.innerHTML = '';
+      if (res.hourly && res.hourly.length) {
+        var nowDate = new Date();
+        var nowJSTH = (nowDate.getUTCHours() + 9) % 24;
+        var prevDate = '';
+        res.hourly.forEach(function(h) {
+          // 過去の時間はスキップ（今日のみ）
+          if (h.date === res.forecast[0].date && h.hour < nowJSTH) return;
+          var ic = weatherIcon(h.weather);
+          var el = document.createElement('div');
+          // 日付ラベル（今日→明日 の切り替え時に挿入）
+          if (h.date !== prevDate) {
+            var sep = document.createElement('div');
+            sep.className = 'hl-sep';
+            sep.textContent = h.date === res.forecast[0].date ? '今日' : '明日';
+            hl.appendChild(sep);
+            prevDate = h.date;
+          }
+          el.className = 'hl-item';
+          el.innerHTML =
+            '<div class="hl-hour">' + String(h.hour).padStart(2,'0') + '時</div>' +
+            '<i class="fas ' + ic + ' hl-icon"></i>' +
+            '<div class="hl-temp">' + h.temp + '°</div>' +
+            (h.pop > 0 ? '<div class="hl-pop">' + h.pop + '%</div>' : '<div class="hl-pop"></div>');
+          hl.appendChild(el);
+        });
+      }
     } catch(e) {}
   }
 
