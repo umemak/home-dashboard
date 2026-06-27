@@ -9,8 +9,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "webapp-production",
-      "database_id": "placeholder-will-be-replaced"
+      "database_name": "home-dashboard-production",
+      "database_id": "abb0e33b-e0e6-4149-8854-32cad75902db"
     }
   ]
 }
