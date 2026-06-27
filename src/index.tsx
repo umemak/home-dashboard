@@ -30,9 +30,18 @@ function generateToken(): string {
   return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
+/** トークン取得（CookieまたはAuthorizationヘッダー） */
+function getToken(c: any): string | null {
+  const cookieToken = getCookie(c, 'session')
+  if (cookieToken) return cookieToken
+  const auth = c.req.header('Authorization') || ''
+  if (auth.startsWith('Bearer ')) return auth.slice(7)
+  return null
+}
+
 /** セッション検証ミドルウェア */
 async function requireAuth(c: any, next: any) {
-  const token = getCookie(c, 'session')
+  const token = getToken(c)
   if (!token) {
     return c.redirect('/login')
   }
@@ -41,7 +50,7 @@ async function requireAuth(c: any, next: any) {
   ).bind(token).first() as any
 
   if (!session) {
-    deleteCookie(c, 'session')
+    deleteCookie(c, 'session', { path: '/' })
     return c.redirect('/login')
   }
   c.set('email', session.email)
@@ -147,19 +156,20 @@ app.post('/auth/verify-otp', async (c) => {
   ).bind(token, email).run()
 
   setCookie(c, 'session', token, {
-    httpOnly: true,
+    httpOnly: false,
     secure: true,
-    sameSite: 'Lax',
+    sameSite: 'None',
     maxAge: 60 * 60 * 24 * 7,
     path: '/',
   })
 
-  return c.json({ ok: true })
+  // トークンをレスポンスにも含める（PWA/localStorage向け）
+  return c.json({ ok: true, token })
 })
 
 /** ログアウト */
 app.post('/auth/logout', async (c) => {
-  const token = getCookie(c, 'session')
+  const token = getToken(c)
   if (token) {
     await c.env.DB.prepare('DELETE FROM sessions WHERE token = ?').bind(token).run()
   }
@@ -169,7 +179,7 @@ app.post('/auth/logout', async (c) => {
 
 /** 認証状態確認 */
 app.get('/auth/me', async (c) => {
-  const token = getCookie(c, 'session')
+  const token = getToken(c)
   if (!token) return c.json({ authenticated: false })
 
   const session = await c.env.DB.prepare(
@@ -463,6 +473,10 @@ app.get('/login', (c) => {
         return;
       }
       clearInterval(timerInterval);
+      // localStorageにトークン保存（PWA対応）
+      if (r.data.token) {
+        try { localStorage.setItem('session_token', r.data.token); } catch(e) {}
+      }
       showMsg('ログイン成功！', 'success');
       setTimeout(function() { window.location.href = '/'; }, 800);
     })
@@ -680,8 +694,17 @@ app.put('/api/settings', async (c) => {
 
 // ── メインHTML（認証必須）────────────────────────────────
 
-app.get('/', requireAuth, (c) => {
-  const email = c.get('email') as string
+app.get('/', async (c) => {
+  // Cookie認証を試みる（フォールバック）
+  const token = getToken(c)
+  let email = 'ゲスト'
+  if (token) {
+    const session = await c.env.DB.prepare(
+      'SELECT email FROM sessions WHERE token = ? AND expires_at > CURRENT_TIMESTAMP'
+    ).bind(token).first() as any
+    if (session) email = session.email
+  }
+  // 認証はクライアント側(localStorage)で行うのでサーバーリダイレクトなし
   const html = `<!DOCTYPE html>
 <html lang="ja">
 <head>

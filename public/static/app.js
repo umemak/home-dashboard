@@ -57,11 +57,25 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
+// ─ セッショントークン取得 ──────────────────────────
+function getSessionToken() {
+  try { return localStorage.getItem('session_token') || ''; } catch(e) { return ''; }
+}
+
 // ─ API ───────────────────────────────────────────
 async function api(method, path, body) {
-  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  const token = getSessionToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const opts = { method, headers };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(path, opts);
+  // 401/403なら再ログイン
+  if (res.status === 401 || res.status === 403) {
+    try { localStorage.removeItem('session_token'); } catch(e) {}
+    window.location.href = '/login';
+    return;
+  }
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
@@ -521,7 +535,12 @@ on($('refresh-btn'), 'click', async () => {
 // ログアウトボタン
 on($('logout-btn'), 'click', async () => {
   if (!confirm('ログアウトしますか？')) return;
-  await fetch('/auth/logout', { method: 'POST' });
+  const token = getSessionToken();
+  await fetch('/auth/logout', {
+    method: 'POST',
+    headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+  });
+  try { localStorage.removeItem('session_token'); } catch(e) {}
   window.location.href = '/login';
 });
 
@@ -551,6 +570,25 @@ function escHtml(s) {
 
 // ─ 初期化 ────────────────────────────────────────
 async function init() {
+  // トークン確認 → なければログインへ
+  const token = getSessionToken();
+  if (!token) {
+    window.location.href = '/login';
+    return;
+  }
+  // サーバー側でもトークン確認
+  try {
+    const me = await fetch('/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const data = await me.json();
+    if (!data.authenticated) {
+      try { localStorage.removeItem('session_token'); } catch(e) {}
+      window.location.href = '/login';
+      return;
+    }
+  } catch(e) { /* ネットワークエラーは無視して続行 */ }
+
   const now = new Date();
   state.calYear  = now.getFullYear();
   state.calMonth = now.getMonth();
