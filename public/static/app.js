@@ -82,21 +82,49 @@ document.addEventListener('DOMContentLoaded', function() {
     Drizzle:'fa-cloud-drizzle', Snow:'fa-snowflake',
     Thunderstorm:'fa-bolt', Mist:'fa-smog', Fog:'fa-smog', Haze:'fa-smog',
   };
+  var WEEKDAYS_SHORT = ['日','月','火','水','木','金','土'];
+
+  function weatherIcon(main) {
+    return WEATHER_ICONS[main] || 'fa-cloud';
+  }
+
   async function loadWeather() {
-    var key = state.settings.weather_api_key;
-    var city = state.settings.city || 'Tokyo';
-    if (!key) return;
+    if (!state.settings.weather_api_key) return;
     try {
-      var res = await fetch('https://api.openweathermap.org/data/2.5/weather?q=' +
-        encodeURIComponent(city) + '&appid=' + key + '&units=metric&lang=ja');
-      if (!res.ok) return;
-      var d = await res.json();
-      var temp = Math.round(d.main.temp);
-      var desc = d.weather[0].description;
-      var icon = WEATHER_ICONS[d.weather[0].main] || 'fa-cloud';
-      $('weather-temp').textContent = temp + '°C';
-      $('weather-desc').textContent = desc;
+      var res = await api('GET', '/api/weather/forecast');
+      if (!res) return;
+
+      // 今日の天気
+      var cur = res.current;
+      var icon = weatherIcon(cur.weather);
       $('weather-icon').innerHTML = '<i class="fas ' + icon + ' fa-2x"></i>';
+      $('weather-temp').textContent = cur.temp + '°C';
+      $('weather-minmax').textContent = '↑' + cur.temp_max + ' ↓' + cur.temp_min;
+      $('weather-desc').textContent = cur.description;
+
+      // 週間予報
+      var fc = $('weather-forecast');
+      fc.innerHTML = '';
+      res.forecast.forEach(function(day, i) {
+        var date = new Date(day.date + 'T00:00:00');
+        var wd = WEEKDAYS_SHORT[date.getDay()];
+        var label = i === 0 ? '今日' : (i === 1 ? '明日' : (date.getMonth()+1) + '/' + date.getDate() + '(' + wd + ')');
+        var ic = weatherIcon(day.weather);
+        var popHtml = day.pop > 0
+          ? '<span class="fc-pop">' + day.pop + '%</span>'
+          : '';
+        var el = document.createElement('div');
+        el.className = 'fc-day' + (i === 0 ? ' fc-today' : '');
+        el.innerHTML =
+          '<div class="fc-label">' + label + '</div>' +
+          '<i class="fas ' + ic + ' fc-icon"></i>' +
+          popHtml +
+          '<div class="fc-temps">' +
+            '<span class="fc-max">' + day.temp_max + '</span>' +
+            '<span class="fc-min">' + day.temp_min + '</span>' +
+          '</div>';
+        fc.appendChild(el);
+      });
     } catch(e) {}
   }
 

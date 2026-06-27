@@ -13,7 +13,7 @@
   --text-primary: #fffffe;
   --text-muted:   #a7a9be;
   --border:       #2a2a4a;
-  --header-h:     72px;
+  --header-h:     80px;
   --footer-h:     48px;
   --radius:       12px;
   --shadow:       0 4px 24px rgba(0,0,0,.5);
@@ -98,17 +98,28 @@ html, body {
 #weather-section {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-width: 160px;
+  gap: 10px;
   justify-content: flex-end;
+  flex: 1;
+  max-width: 620px;
 }
 
-#weather-icon { color: #74b9ff; font-size: 1.2rem; }
+/* 今日の天気（左） */
+#weather-today {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-right: 10px;
+  border-right: 1px solid var(--border);
+}
+
+#weather-icon { color: #74b9ff; font-size: 1.4rem; }
 
 #weather-info {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
 }
 
 #weather-temp {
@@ -117,10 +128,68 @@ html, body {
   line-height: 1;
 }
 
-#weather-desc {
-  font-size: 0.78rem;
+#weather-minmax {
+  font-size: 0.72rem;
   color: var(--text-muted);
 }
+
+#weather-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* 週間予報（右） */
+#weather-forecast {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.fc-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.04);
+  min-width: 52px;
+  transition: background .15s;
+}
+
+.fc-day.fc-today {
+  background: rgba(233,69,96,.15);
+  border: 1px solid rgba(233,69,96,.3);
+}
+
+.fc-label {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.fc-day.fc-today .fc-label { color: #ff8fa3; font-weight: 600; }
+
+.fc-icon {
+  font-size: 1rem;
+  color: #74b9ff;
+}
+
+.fc-pop {
+  font-size: 0.65rem;
+  color: #74b9ff;
+  line-height: 1;
+}
+
+.fc-temps {
+  display: flex;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-max { color: #ff7675; font-weight: 600; }
+.fc-min { color: #74b9ff; }
 
 /* ── メインコンテンツ ─────────────────────────── */
 #main-content {

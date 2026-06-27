@@ -672,6 +672,65 @@ app.delete('/api/events/:id', async (c) => {
   return c.json({ ok: true })
 })
 
+// 天気予報（5日間）
+app.get('/api/weather/forecast', async (c) => {
+  const { results } = await c.env.DB.prepare('SELECT * FROM settings').all() as { results: { key: string; value: string }[] }
+  const settings: Record<string, string> = {}
+  for (const r of results) settings[r.key] = r.value
+
+  const key = settings.weather_api_key
+  const city = settings.city || 'Tokyo'
+  if (!key) return c.json({ error: 'APIキー未設定' }, 400)
+
+  // 現在の天気
+  const [curRes, fcRes] = await Promise.all([
+    fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${key}&units=metric&lang=ja`),
+    fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&appid=${key}&units=metric&lang=ja&cnt=40`),
+  ])
+  if (!curRes.ok || !fcRes.ok) return c.json({ error: '天気API取得失敗' }, 502)
+
+  const cur = await curRes.json() as any
+  const fc  = await fcRes.json() as any
+
+  // 今日の日付(現地時間基準)
+  const todayStr = new Date().toISOString().slice(0, 10)
+
+  // 5日分: 各日の12:00のデータを優先、なければその日の最初のデータ
+  const dayMap: Record<string, any[]> = {}
+  for (const item of fc.list as any[]) {
+    const d = item.dt_txt.slice(0, 10)
+    if (!dayMap[d]) dayMap[d] = []
+    dayMap[d].push(item)
+  }
+
+  const days = Object.keys(dayMap).sort().slice(0, 6).map(date => {
+    const items = dayMap[date]
+    const noon = items.find((i: any) => i.dt_txt.includes('12:00:00')) || items[0]
+    const temps = items.map((i: any) => i.main.temp)
+    return {
+      date,
+      temp_max: Math.round(Math.max(...temps)),
+      temp_min: Math.round(Math.min(...temps)),
+      weather: noon.weather[0].main,
+      description: noon.weather[0].description,
+      pop: Math.round((noon.pop || 0) * 100), // 降水確率%
+    }
+  })
+
+  return c.json({
+    current: {
+      temp: Math.round(cur.main.temp),
+      temp_max: Math.round(cur.main.temp_max),
+      temp_min: Math.round(cur.main.temp_min),
+      weather: cur.weather[0].main,
+      description: cur.weather[0].description,
+      humidity: cur.main.humidity,
+      city: cur.name,
+    },
+    forecast: days,
+  })
+})
+
 // 設定
 app.get('/api/settings', async (c) => {
   const { results } = await c.env.DB.prepare('SELECT * FROM settings').all()
@@ -723,11 +782,15 @@ app.get('/', async (c) => {
       <span id="family-name">おうちダッシュボード</span>
     </div>
     <div id="weather-section">
-      <div id="weather-icon"><i class="fas fa-cloud fa-2x"></i></div>
-      <div id="weather-info">
-        <span id="weather-temp">--°C</span>
-        <span id="weather-desc">--</span>
+      <div id="weather-today">
+        <div id="weather-icon"><i class="fas fa-cloud fa-2x"></i></div>
+        <div id="weather-info">
+          <span id="weather-temp">--°C</span>
+          <span id="weather-minmax">--/--</span>
+          <span id="weather-desc">--</span>
+        </div>
       </div>
+      <div id="weather-forecast"></div>
     </div>
   </header>
 
