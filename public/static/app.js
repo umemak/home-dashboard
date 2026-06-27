@@ -518,6 +518,13 @@ on($('refresh-btn'), 'click', async () => {
   $('last-update').textContent = `最終更新: ${new Date().toLocaleTimeString('ja-JP')}`;
 });
 
+// ログアウトボタン
+on($('logout-btn'), 'click', async () => {
+  if (!confirm('ログアウトしますか？')) return;
+  await fetch('/auth/logout', { method: 'POST' });
+  window.location.href = '/login';
+});
+
 // ─ スクリーンウェイクロック (PWAキオスク用) ──────────
 async function requestWakeLock() {
   if ('wakeLock' in navigator) {
