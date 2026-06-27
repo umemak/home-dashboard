@@ -15,14 +15,27 @@ async function api(method, path, body) {
   if (token) headers['Authorization'] = 'Bearer ' + token;
   const opts = { method, headers };
   if (body) opts.body = JSON.stringify(body);
-  const res = await fetch(path, opts);
-  if (res.status === 401 || res.status === 403) {
-    try { localStorage.removeItem('session_token'); } catch(e) {}
-    window.location.href = '/login';
+  try {
+    const res = await fetch(path, opts);
+    if (res.status === 401 || res.status === 403) {
+      // 401/403 はリトライしてから諦める
+      await new Promise(function(r){ setTimeout(r, 1500); });
+      const res2 = await fetch(path, opts);
+      if (res2.status === 401 || res2.status === 403) {
+        try { localStorage.removeItem('session_token'); } catch(e) {}
+        window.location.href = '/login';
+        return null;
+      }
+      if (!res2.ok) throw new Error(await res2.text());
+      return res2.json();
+    }
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  } catch(e) {
+    // ネットワークエラーはnullを返す（ログアウトしない）
+    console.warn('api error:', path, e);
     return null;
   }
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
 }
 
 // ─ 日付ユーティリティ ─────────────────────────────
@@ -544,20 +557,30 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
-    // 認証確認 & メール表示
-    try {
-      var res = await fetch('/auth/me', {headers: {'Authorization': 'Bearer '+token}});
-      var me = await res.json();
-      if (!me.authenticated) {
-        try { localStorage.removeItem('session_token'); } catch(e) {}
-        window.location.href = '/login';
-        return;
-      }
-      var emailEl = $('user-email');
-      if (emailEl && me.email) emailEl.textContent = me.email;
-    } catch(e) {
-      // ネットワークエラーはそのまま続行
+    // 認証確認 & メール表示（失敗してもリダイレクトしない、リトライあり）
+    var authOk = false;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        var res = await fetch('/auth/me', {headers: {'Authorization': 'Bearer '+token}});
+        if (res.ok) {
+          var me = await res.json();
+          if (me.authenticated) {
+            authOk = true;
+            var emailEl = $('user-email');
+            if (emailEl && me.email) emailEl.textContent = me.email;
+            break;
+          } else {
+            // サーバーが明示的に「未認証」と返した場合のみログアウト
+            try { localStorage.removeItem('session_token'); } catch(e) {}
+            window.location.href = '/login';
+            return;
+          }
+        }
+        // 5xx等はリトライ
+      } catch(e) { /* ネットワークエラーはリトライ */ }
+      if (attempt < 2) await new Promise(function(r){ setTimeout(r, 1000 * (attempt + 1)); });
     }
+    // 3回失敗してもトークンがある限りそのまま続行（オフライン等）
 
     var now = new Date();
     state.calYear  = now.getFullYear();

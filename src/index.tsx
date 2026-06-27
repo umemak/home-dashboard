@@ -177,16 +177,26 @@ app.post('/auth/logout', async (c) => {
   return c.json({ ok: true })
 })
 
-/** 認証状態確認 */
+/** 認証状態確認（セッション自動延長付き） */
 app.get('/auth/me', async (c) => {
   const token = getToken(c)
   if (!token) return c.json({ authenticated: false })
 
   const session = await c.env.DB.prepare(
-    'SELECT email FROM sessions WHERE token = ? AND expires_at > CURRENT_TIMESTAMP'
+    "SELECT email, expires_at FROM sessions WHERE token = ? AND expires_at > CURRENT_TIMESTAMP"
   ).bind(token).first() as any
 
   if (!session) return c.json({ authenticated: false })
+
+  // 残り3日未満なら7日延長
+  const expiresAt = new Date(session.expires_at + 'Z')
+  const diffDays = (expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  if (diffDays < 3) {
+    await c.env.DB.prepare(
+      "UPDATE sessions SET expires_at = datetime('now', '+7 days') WHERE token = ?"
+    ).bind(token).run()
+  }
+
   return c.json({ authenticated: true, email: session.email })
 })
 
