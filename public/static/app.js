@@ -587,6 +587,9 @@ async function init() {
       window.location.href = '/login';
       return;
     }
+    // メールアドレスをフッターに表示
+    const emailEl = document.getElementById('user-email');
+    if (emailEl && data.email) emailEl.textContent = data.email;
   } catch(e) { /* ネットワークエラーは無視して続行 */ }
 
   const now = new Date();

@@ -695,16 +695,7 @@ app.put('/api/settings', async (c) => {
 // ── メインHTML（認証必須）────────────────────────────────
 
 app.get('/', async (c) => {
-  // Cookie認証を試みる（フォールバック）
-  const token = getToken(c)
-  let email = 'ゲスト'
-  if (token) {
-    const session = await c.env.DB.prepare(
-      'SELECT email FROM sessions WHERE token = ? AND expires_at > CURRENT_TIMESTAMP'
-    ).bind(token).first() as any
-    if (session) email = session.email
-  }
-  // 認証はクライアント側(localStorage)で行うのでサーバーリダイレクトなし
+  // 認証はクライアント側(localStorage+Bearer)で行う
   const html = `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -773,7 +764,7 @@ app.get('/', async (c) => {
     <button id="settings-btn" class="footer-btn"><i class="fas fa-cog"></i> 設定</button>
     <div id="footer-status"><span id="last-update">--</span></div>
     <div style="display:flex;gap:8px;align-items:center;">
-      <span style="font-size:0.72rem;color:#a7a9be;">${email}</span>
+      <span id="user-email" style="font-size:0.72rem;color:#a7a9be;"></span>
       <button id="logout-btn" class="footer-btn"><i class="fas fa-sign-out-alt"></i> ログアウト</button>
       <button id="refresh-btn" class="footer-btn"><i class="fas fa-sync-alt"></i> 更新</button>
     </div>
