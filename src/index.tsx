@@ -342,8 +342,8 @@ app.get('/login', (c) => {
     <div id="step1" class="step active">
       <label for="email">メールアドレス</label>
       <input id="email" type="email" placeholder="your@email.com" autocomplete="email" inputmode="email">
-      <button id="send-btn" class="btn" onclick="sendOTP()">
-        <i class="fas fa-paper-plane"></i> コードを送信
+      <button id="send-btn" class="btn" type="button">
+        &#x1F4E8; コードを送信
       </button>
     </div>
 
@@ -355,140 +355,149 @@ app.get('/login', (c) => {
       <div id="timer" class="timer"></div>
       <label for="otp">確認コード</label>
       <input id="otp" class="otp-input" type="tel" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
-      <button id="verify-btn" class="btn" onclick="verifyOTP()">
-        <i class="fas fa-check"></i> ログイン
-      </button>
-      <button class="btn btn-secondary" onclick="backToEmail()">
-        <i class="fas fa-arrow-left"></i> 戻る
-      </button>
+      <button id="verify-btn" class="btn" type="button">&#x2714; ログイン</button>
+      <button id="back-btn" class="btn btn-secondary" type="button">&#x2190; 戻る</button>
     </div>
   </div>
 </div>
 
 <script>
-let currentEmail = '';
-let timerInterval = null;
-let expiresAt = null;
+(function() {
+  'use strict';
+  var currentEmail = '';
+  var timerInterval = null;
 
-function showMsg(text, type) {
-  const el = document.getElementById('msg');
-  el.textContent = text;
-  el.className = 'message ' + type;
-  el.style.display = 'block';
-}
-function hideMsg() {
-  document.getElementById('msg').style.display = 'none';
-}
+  function el(id) { return document.getElementById(id); }
 
-async function sendOTP() {
-  const email = document.getElementById('email').value.trim();
-  if (!email || !email.includes('@')) {
-    showMsg('有効なメールアドレスを入力してください', 'error');
-    return;
+  function showMsg(text, type) {
+    var m = el('msg');
+    m.textContent = text;
+    m.className = 'message ' + type;
+    m.style.display = 'block';
   }
-  const btn = document.getElementById('send-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="loading">送信中</span>';
-  hideMsg();
+  function hideMsg() { el('msg').style.display = 'none'; }
 
-  try {
-    const res = await fetch('/auth/request-otp', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ email })
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      showMsg(data.error || 'エラーが発生しました', 'error');
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-paper-plane"></i> コードを送信';
+  function startTimer(seconds) {
+    var timerEl = el('timer');
+    var remaining = seconds;
+    function update() {
+      var m = Math.floor(remaining / 60);
+      var s = remaining % 60;
+      timerEl.textContent = '有効期限: ' + m + ':' + (s < 10 ? '0' : '') + s;
+      timerEl.className = 'timer' + (remaining <= 60 ? ' urgent' : '');
+      if (remaining <= 0) {
+        clearInterval(timerInterval);
+        timerEl.textContent = 'コードの有効期限が切れました';
+        timerEl.className = 'timer urgent';
+        el('verify-btn').disabled = true;
+      }
+      remaining--;
+    }
+    update();
+    timerInterval = setInterval(update, 1000);
+  }
+
+  function sendOTP() {
+    var email = el('email').value.trim();
+    if (!email || email.indexOf('@') < 0) {
+      showMsg('有効なメールアドレスを入力してください', 'error');
       return;
     }
-    currentEmail = email;
-    document.getElementById('email-display').textContent = email;
-    document.getElementById('step1').classList.remove('active');
-    document.getElementById('step2').classList.add('active');
+    var btn = el('send-btn');
+    btn.disabled = true;
+    btn.textContent = '送信中...';
     hideMsg();
-    startTimer(10 * 60);
-    setTimeout(() => document.getElementById('otp').focus(), 100);
-  } catch(e) {
-    showMsg('通信エラーが発生しました', 'error');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-paper-plane"></i> コードを送信';
-  }
-}
 
-async function verifyOTP() {
-  const code = document.getElementById('otp').value.trim();
-  if (code.length !== 6) {
-    showMsg('6桁のコードを入力してください', 'error');
-    return;
-  }
-  const btn = document.getElementById('verify-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="loading">確認中</span>';
-  hideMsg();
-
-  try {
-    const res = await fetch('/auth/verify-otp', {
+    fetch('/auth/request-otp', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ email: currentEmail, code })
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      showMsg(data.error || 'コードが正しくありません', 'error');
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email })
+    })
+    .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+    .then(function(r) {
+      if (!r.ok) {
+        showMsg(r.data.error || 'エラーが発生しました', 'error');
+        btn.disabled = false;
+        btn.textContent = '📨 コードを送信';
+        return;
+      }
+      currentEmail = email;
+      el('email-display').textContent = email;
+      el('step1').classList.remove('active');
+      el('step2').classList.add('active');
+      hideMsg();
+      startTimer(10 * 60);
+      setTimeout(function() { el('otp').focus(); }, 300);
+    })
+    .catch(function(e) {
+      showMsg('通信エラー: ' + e.message, 'error');
       btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-check"></i> ログイン';
-      document.getElementById('otp').value = '';
-      document.getElementById('otp').focus();
+      btn.textContent = '📨 コードを送信';
+    });
+  }
+
+  function verifyOTP() {
+    var code = el('otp').value.trim();
+    if (code.length !== 6) {
+      showMsg('6桁のコードを入力してください', 'error');
       return;
     }
-    clearInterval(timerInterval);
-    showMsg('ログイン成功！', 'success');
-    setTimeout(() => { window.location.href = '/'; }, 800);
-  } catch(e) {
-    showMsg('通信エラーが発生しました', 'error');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-check"></i> ログイン';
-  }
-}
+    var btn = el('verify-btn');
+    btn.disabled = true;
+    btn.textContent = '確認中...';
+    hideMsg();
 
-function backToEmail() {
-  clearInterval(timerInterval);
-  document.getElementById('step2').classList.remove('active');
-  document.getElementById('step1').classList.add('active');
-  document.getElementById('otp').value = '';
-  document.getElementById('send-btn').disabled = false;
-  document.getElementById('send-btn').innerHTML = '<i class="fas fa-paper-plane"></i> コードを送信';
-  hideMsg();
-}
-
-function startTimer(seconds) {
-  const timerEl = document.getElementById('timer');
-  let remaining = seconds;
-  const update = () => {
-    const m = Math.floor(remaining / 60);
-    const s = remaining % 60;
-    timerEl.textContent = \`有効期限: \${m}:\${String(s).padStart(2,'0')}\`;
-    timerEl.className = 'timer' + (remaining <= 60 ? ' urgent' : '');
-    if (remaining <= 0) {
+    fetch('/auth/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: currentEmail, code: code })
+    })
+    .then(function(res) { return res.json().then(function(d) { return { ok: res.ok, data: d }; }); })
+    .then(function(r) {
+      if (!r.ok) {
+        showMsg(r.data.error || 'コードが正しくありません', 'error');
+        btn.disabled = false;
+        btn.textContent = '✔ ログイン';
+        el('otp').value = '';
+        el('otp').focus();
+        return;
+      }
       clearInterval(timerInterval);
-      timerEl.textContent = 'コードの有効期限が切れました';
-      timerEl.className = 'timer urgent';
-      document.getElementById('verify-btn').disabled = true;
-    }
-    remaining--;
-  };
-  update();
-  timerInterval = setInterval(update, 1000);
-}
+      showMsg('ログイン成功！', 'success');
+      setTimeout(function() { window.location.href = '/'; }, 800);
+    })
+    .catch(function(e) {
+      showMsg('通信エラー: ' + e.message, 'error');
+      btn.disabled = false;
+      btn.textContent = '✔ ログイン';
+    });
+  }
 
-// Enterキー対応
-document.getElementById('email').addEventListener('keydown', e => { if (e.key === 'Enter') sendOTP(); });
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('otp')?.addEventListener('keydown', e => { if (e.key === 'Enter') verifyOTP(); });
-});
+  function backToEmail() {
+    clearInterval(timerInterval);
+    el('step2').classList.remove('active');
+    el('step1').classList.add('active');
+    el('otp').value = '';
+    el('send-btn').disabled = false;
+    el('send-btn').textContent = '📨 コードを送信';
+    hideMsg();
+  }
+
+  // イベント登録（DOMContentLoaded後に確実に実行）
+  function init() {
+    el('send-btn').addEventListener('click', sendOTP);
+    el('verify-btn').addEventListener('click', verifyOTP);
+    el('back-btn').addEventListener('click', backToEmail);
+    el('email').addEventListener('keydown', function(e) { if (e.keyCode === 13) sendOTP(); });
+    el('otp').addEventListener('keydown', function(e) { if (e.keyCode === 13) verifyOTP(); });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
 </script>
 </body>
 </html>`
@@ -517,8 +526,8 @@ app.get('/manifest.json', (c) => {
 
 app.get('/sw.js', (c) => {
   const sw = `
-const CACHE = 'ouchi-v1';
-const STATIC = ['/login', '/static/style.css', '/static/app.js'];
+const CACHE = 'ouchi-v2';
+const STATIC = ['/static/style.css', '/static/app.js'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)));
   self.skipWaiting();
@@ -533,10 +542,15 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
+  // API・認証・HTMLページは常にネットワーク優先
+  if (url.pathname.startsWith('/api/') ||
+      url.pathname.startsWith('/auth/') ||
+      url.pathname === '/' ||
+      url.pathname === '/login') {
     e.respondWith(fetch(e.request));
     return;
   }
+  // 静的アセットのみキャッシュ利用
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
   );
