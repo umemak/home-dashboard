@@ -837,6 +837,13 @@ app.get('/', async (c) => {
     </div>
   </header>
 
+  <!-- スマホ用タブナビ -->
+  <nav id="tab-nav">
+    <button class="tab-btn active" data-tab="calendar-section"><i class="fas fa-calendar-alt"></i><span>カレンダー</span></button>
+    <button class="tab-btn" data-tab="memo-section"><i class="fas fa-sticky-note"></i><span>メモ</span></button>
+    <button class="tab-btn" data-tab="task-section"><i class="fas fa-tasks"></i><span>タスク</span></button>
+  </nav>
+
   <main id="main-content">
     <section id="calendar-section" class="panel">
       <div class="panel-header">

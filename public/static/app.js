@@ -536,6 +536,31 @@ document.addEventListener('DOMContentLoaded', function() {
     window.location.href = '/login';
   });
 
+  // ─ タブ切り替え（スマホ・タブレット用）──────────
+  function initTabs() {
+    var tabs = document.querySelectorAll('.tab-btn');
+    if (!tabs.length) return;
+
+    function switchTab(targetId) {
+      // タブボタン
+      tabs.forEach(function(btn) {
+        btn.classList.toggle('active', btn.dataset.tab === targetId);
+      });
+      // パネル
+      document.querySelectorAll('.panel').forEach(function(panel) {
+        panel.classList.toggle('tab-active', panel.id === targetId);
+      });
+    }
+
+    tabs.forEach(function(btn) {
+      on(btn, 'click', function() { switchTab(btn.dataset.tab); });
+    });
+
+    // 初期表示: カレンダー
+    switchTab('calendar-section');
+  }
+  initTabs();
+
   // ─ Wake Lock ──────────────────────────────────
   async function requestWakeLock() {
     if ('wakeLock' in navigator) {
