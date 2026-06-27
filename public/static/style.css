@@ -858,8 +858,9 @@ textarea#memo-content {
     height: 0; /* flex: 1 で伸びる */
   }
 
-  /* キオスクモード */
+  /* キオスクモード（iPad/PC のみ） */
   body { touch-action: none; -webkit-user-select: none; user-select: none; }
+  #weather-today { cursor: default; }
 
   /* 削除ボタン: ホバー時のみ表示 */
   .event-del-btn { opacity: 0; }
@@ -881,6 +882,7 @@ textarea#memo-content {
   .weather-toggle-icon { display: inline-flex; }
   #weather-detail-panel { display: flex; }
   #weather-detail-panel.hidden { display: none !important; }
+  body { touch-action: auto; }
 
   /* タブナビ表示 */
   #tab-nav {
@@ -959,6 +961,7 @@ textarea#memo-content {
   .weather-toggle-icon { display: inline-flex; }
   #weather-detail-panel { display: flex; }
   #weather-detail-panel.hidden { display: none !important; }
+  body { touch-action: auto; }
 
   /* タブナビ */
   #tab-nav {

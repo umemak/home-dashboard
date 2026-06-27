@@ -837,12 +837,13 @@ app.get('/', async (c) => {
       </div>
     </div>
 
-    <!-- スマホ用天気詳細パネル -->
-    <div id="weather-detail-panel" class="hidden">
-      <div id="weather-detail-forecast"></div>
-      <div id="weather-detail-hourly"></div>
-    </div>
   </header>
+
+  <!-- スマホ用天気詳細パネル（ヘッダー外） -->
+  <div id="weather-detail-panel" class="hidden">
+    <div id="weather-detail-forecast"></div>
+    <div id="weather-detail-hourly"></div>
+  </div>
 
   <!-- スマホ用タブナビ -->
   <nav id="tab-nav">

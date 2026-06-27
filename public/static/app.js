@@ -184,13 +184,30 @@ document.addEventListener('DOMContentLoaded', function() {
     var weatherToday = $('weather-today');
     if (!panel || !weatherToday) return;
 
-    on(weatherToday, 'click', function() {
+    function togglePanel(e) {
+      e.preventDefault();
+      e.stopPropagation();
       var isOpen = !panel.classList.contains('hidden');
       panel.classList.toggle('hidden', isOpen);
       if (toggleIcon) toggleIcon.classList.toggle('open', !isOpen);
+    }
+
+    // touchstart + click 両方登録（iOS Safari対応）
+    weatherToday.addEventListener('touchstart', togglePanel, { passive: false });
+    weatherToday.addEventListener('click', function(e) {
+      // touchstart で処理済みの場合は無視
+      e.stopPropagation();
     });
 
     // パネル外タップで閉じる
+    document.addEventListener('touchstart', function(e) {
+      if (!panel.classList.contains('hidden') &&
+          !weatherToday.contains(e.target) &&
+          !panel.contains(e.target)) {
+        panel.classList.add('hidden');
+        if (toggleIcon) toggleIcon.classList.remove('open');
+      }
+    }, { passive: true });
     document.addEventListener('click', function(e) {
       if (!panel.classList.contains('hidden') &&
           !weatherToday.contains(e.target) &&
