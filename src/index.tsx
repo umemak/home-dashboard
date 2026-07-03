@@ -670,11 +670,13 @@ app.get('/api/events', async (c) => {
   return c.json(results)
 })
 app.post('/api/events', async (c) => {
-  const { title, date, time, color = 'blue', repeat_type = 'none' } = await c.req.json()
+  const { title, date, end_date, time, color = 'blue', repeat_type = 'none' } = await c.req.json()
   if (!title?.trim() || !date) return c.json({ error: '必須項目が不足しています' }, 400)
+  // end_date が date より前なら無視
+  const effectiveEndDate = (end_date && end_date > date) ? end_date : null
   const r = await c.env.DB.prepare(
-    'INSERT INTO events (title, date, time, color, repeat_type) VALUES (?, ?, ?, ?, ?) RETURNING *'
-  ).bind(title.trim(), date, time ?? null, color, repeat_type).first()
+    'INSERT INTO events (title, date, end_date, time, color, repeat_type) VALUES (?, ?, ?, ?, ?, ?) RETURNING *'
+  ).bind(title.trim(), date, effectiveEndDate, time ?? null, color, repeat_type).first()
   return c.json(r, 201)
 })
 app.delete('/api/events/:id', async (c) => {
@@ -935,9 +937,19 @@ app.get('/', async (c) => {
 <div id="event-modal" class="modal hidden">
   <div class="modal-box">
     <h3><i class="fas fa-calendar-plus"></i> 予定追加</h3>
-    <input id="event-title" type="text"  placeholder="予定タイトル..." class="modal-input">
-    <input id="event-date"  type="date"  class="modal-input">
-    <input id="event-time"  type="time"  class="modal-input">
+    <input id="event-title" type="text" placeholder="予定タイトル..." class="modal-input">
+    <div class="event-date-row">
+      <div class="event-date-col">
+        <label class="modal-label">開始日</label>
+        <input id="event-date" type="date" class="modal-input">
+      </div>
+      <div class="event-date-sep">〜</div>
+      <div class="event-date-col">
+        <label class="modal-label">終了日 <span class="modal-label-note">（期間がある場合）</span></label>
+        <input id="event-end-date" type="date" class="modal-input">
+      </div>
+    </div>
+    <input id="event-time" type="time" class="modal-input" placeholder="時刻（任意）">
     <div class="color-picker">
       <span>色:</span>
       <button class="color-btn" data-color="blue"   style="background:#4d96ff">青</button>

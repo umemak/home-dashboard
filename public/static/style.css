@@ -745,6 +745,60 @@ textarea#memo-content {
 }
 .settings-note a { color: var(--memo-blue); }
 
+/* 日付入力行（開始〜終了） */
+.event-date-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-bottom: 0;
+}
+.event-date-col {
+  flex: 1;
+  min-width: 0;
+}
+.event-date-sep {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 1rem;
+  padding-bottom: 12px;
+}
+.modal-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.modal-label-note {
+  font-size: 0.68rem;
+  opacity: .7;
+}
+
+/* 期間バー（カレンダー） */
+.cal-day.has-range-start { border-radius: 6px 0 0 6px; }
+.cal-day.has-range-mid   { border-radius: 0; }
+.cal-day.has-range-end   { border-radius: 0 6px 6px 0; }
+
+.range-bar {
+  position: absolute;
+  bottom: 4px;
+  left: 0; right: 0;
+  height: 3px;
+  border-radius: 2px;
+  opacity: .8;
+}
+.range-bar.blue   { background: #4d96ff; }
+.range-bar.green  { background: #6bcb77; }
+.range-bar.pink   { background: #ff6b9d; }
+.range-bar.orange { background: #ff9f43; }
+.range-bar.purple { background: #a29bfe; }
+
+/* イベントリストの期間表示 */
+.event-period {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .color-picker, .priority-picker {
   display: flex;
   align-items: center;

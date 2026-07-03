@@ -243,22 +243,47 @@ document.addEventListener('DOMContentLoaded', function() {
       grid.appendChild(el);
     });
     var today = toDateStr(new Date());
-    var firstDay = new Date(y, m, 1).getDay();
-    var daysInMonth = new Date(y, m+1, 0).getDate();
-    var daysInPrev  = new Date(y, m, 0).getDate();
+    var firstDay   = new Date(y, m, 1).getDay();
+    var daysInMonth= new Date(y, m+1, 0).getDate();
+    var daysInPrev = new Date(y, m, 0).getDate();
 
+    // 単日イベントマップ（開始日キー）
     var eventMap = {};
+    // 期間バーマップ（各日付 -> [{ev, pos}]）
+    var rangeMap = {};
+
     state.events.forEach(function(ev) {
-      if (!eventMap[ev.date]) eventMap[ev.date] = [];
-      eventMap[ev.date].push(ev);
+      if (!ev.end_date) {
+        // 単日
+        if (!eventMap[ev.date]) eventMap[ev.date] = [];
+        eventMap[ev.date].push(ev);
+      } else {
+        // 期間: 開始日〜終了日の各日に登録
+        var cur = new Date(ev.date + 'T00:00:00');
+        var end = new Date(ev.end_date + 'T00:00:00');
+        while (cur <= end) {
+          var ds2 = toDateStr(cur);
+          if (!rangeMap[ds2]) rangeMap[ds2] = [];
+          var pos = (ds2 === ev.date && ds2 === ev.end_date) ? 'single'
+                  : (ds2 === ev.date)     ? 'start'
+                  : (ds2 === ev.end_date) ? 'end' : 'mid';
+          rangeMap[ds2].push({ ev: ev, pos: pos });
+          cur.setDate(cur.getDate() + 1);
+        }
+        // イベントリスト用: 開始日に登録
+        if (!eventMap[ev.date]) eventMap[ev.date] = [];
+        eventMap[ev.date].push(ev);
+      }
     });
 
+    // 前月末尾
     for (var i=0; i<firstDay; i++) {
       var el = document.createElement('div');
       el.className = 'cal-day other-month';
       el.textContent = daysInPrev - firstDay + i + 1;
       grid.appendChild(el);
     }
+    // 当月
     for (var d=1; d<=daysInMonth; d++) {
       var ds = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
       var dow = new Date(y,m,d).getDay();
@@ -269,25 +294,46 @@ document.addEventListener('DOMContentLoaded', function() {
       if (dow===6) cls += ' saturday';
       el.className = cls;
       el.textContent = d;
-      if (eventMap[ds] && eventMap[ds].length) {
+
+      // 単日イベントの点（最大3個）
+      var singleEvs = (eventMap[ds]||[]).filter(function(ev){ return !ev.end_date; });
+      if (singleEvs.length) {
         var row = document.createElement('div');
         row.className = 'cal-dot-row';
-        eventMap[ds].slice(0,3).forEach(function(ev) {
+        singleEvs.slice(0,3).forEach(function(ev) {
           var dot = document.createElement('div');
           dot.className = 'cal-dot ' + (ev.color||'blue');
           row.appendChild(dot);
         });
         el.appendChild(row);
       }
+
+      // 期間イベントのバー（最大2本）
+      if (rangeMap[ds]) {
+        rangeMap[ds].slice(0,2).forEach(function(item, idx) {
+          var bar = document.createElement('div');
+          bar.className = 'range-bar ' + (item.ev.color||'blue');
+          // 位置で角丸を調整
+          if (item.pos==='start')  bar.style.cssText += 'border-radius:3px 0 0 3px;left:4px;';
+          else if (item.pos==='end') bar.style.cssText += 'border-radius:0 3px 3px 0;right:4px;';
+          else if (item.pos==='mid') bar.style.cssText += 'border-radius:0;';
+          // 2本目は少し上にずらす
+          bar.style.bottom = (4 + idx * 5) + 'px';
+          el.appendChild(bar);
+        });
+      }
+
       (function(dateStr) {
         el.addEventListener('click', function() {
           state.selectedCalDate = dateStr;
           $('event-date').value = dateStr;
+          $('event-end-date').value = '';
           openModal('event-modal');
         });
       })(ds);
       grid.appendChild(el);
     }
+    // 翌月先頭
     var total = firstDay + daysInMonth;
     var rem = total%7===0 ? 0 : 7-(total%7);
     for (var d=1; d<=rem; d++) {
@@ -307,10 +353,10 @@ document.addEventListener('DOMContentLoaded', function() {
     var items = [];
     Object.keys(eventMap).forEach(function(date) {
       if (date.startsWith(monthStr)) {
-        eventMap[date].forEach(function(ev) { items.push(Object.assign({}, ev, {date: date})); });
+        eventMap[date].forEach(function(ev) { items.push(ev); });
       }
     });
-    items.sort(function(a,b){ return (a.date+a.time) < (b.date+b.time) ? -1 : 1; });
+    items.sort(function(a,b){ return (a.date+(a.time||'')) < (b.date+(b.time||'')) ? -1 : 1; });
     if (!items.length) {
       list.innerHTML = '<div class="empty-state"><i class="fas fa-calendar"></i>予定なし</div>';
       return;
@@ -318,7 +364,12 @@ document.addEventListener('DOMContentLoaded', function() {
     items.forEach(function(ev) {
       var el = document.createElement('div');
       el.className = 'event-item ' + (ev.color||'blue');
-      el.innerHTML = '<span class="event-date-badge">' + formatDateJa(ev.date) + '</span>' +
+      // 期間表示: 終了日があれば「6/1〜6/3」形式
+      var dateBadge = ev.end_date
+        ? formatDateJa(ev.date) + '〜' + formatDateJa(ev.end_date)
+        : formatDateJa(ev.date);
+      el.innerHTML =
+        '<span class="event-date-badge">' + dateBadge + '</span>' +
         '<span class="event-title">' + escHtml(ev.title) + '</span>' +
         (ev.time ? '<span class="event-time">'+ev.time+'</span>' : '') +
         '<button class="event-del-btn" title="削除"><i class="fas fa-times"></i></button>';
@@ -506,11 +557,18 @@ document.addEventListener('DOMContentLoaded', function() {
   on($('cal-add-btn'), 'click', function() {
     $('event-title').value = '';
     $('event-date').value = state.selectedCalDate || toDateStr(new Date());
+    $('event-end-date').value = '';
     $('event-time').value = '';
     state.selectedEventColor = 'blue';
     document.querySelectorAll('#event-modal .color-btn').forEach(function(b){ b.classList.remove('selected'); });
     openModal('event-modal');
     setTimeout(function(){ $('event-title').focus(); }, 100);
+  });
+  // 開始日が変わったら終了日の min を更新
+  on($('event-date'), 'change', function() {
+    var endEl = $('event-end-date');
+    endEl.min = $('event-date').value;
+    if (endEl.value && endEl.value <= $('event-date').value) endEl.value = '';
   });
   document.querySelectorAll('#event-modal .color-btn').forEach(function(btn) {
     on(btn, 'click', function() {
@@ -521,10 +579,16 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   on($('event-cancel'), 'click', closeAllModals);
   on($('event-save'), 'click', async function() {
-    var title = $('event-title').value.trim();
-    var date  = $('event-date').value;
-    if (!title || !date) { alert('タイトルと日付を入力してください'); return; }
-    await api('POST', '/api/events', {title, date, time: $('event-time').value||null, color: state.selectedEventColor});
+    var title   = $('event-title').value.trim();
+    var date    = $('event-date').value;
+    var endDate = $('event-end-date').value || null;
+    if (!title || !date) { alert('タイトルと開始日を入力してください'); return; }
+    if (endDate && endDate <= date) { alert('終了日は開始日より後にしてください'); return; }
+    await api('POST', '/api/events', {
+      title, date, end_date: endDate,
+      time: $('event-time').value || null,
+      color: state.selectedEventColor
+    });
     closeAllModals();
     await loadEvents();
   });
