@@ -107,7 +107,7 @@ app.post('/auth/request-otp', async (c) => {
       subject: '【おうちダッシュボード】ログインコード',
       html: `
         <div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:24px;">
-          <h2 style="color:#e94560;">🏠 おうちダッシュボード</h2>
+          <h2 style="color:#42a5f5;">🏠 おうちダッシュボード</h2>
           <p>ログインコードです。<strong>10分以内</strong>に入力してください。</p>
           <div style="font-size:2.5rem;font-weight:bold;letter-spacing:8px;text-align:center;
                       padding:20px;background:#1a1a2e;color:#ffd93d;border-radius:12px;margin:20px 0;">
@@ -218,7 +218,7 @@ app.get('/login', (c) => {
     --bg: #0f0e17;
     --panel: #16213e;
     --card: #0f3460;
-    --accent: #e94560;
+    --accent: #42a5f5;
     --text: #fffffe;
     --muted: #a7a9be;
     --border: #2a2a4a;
@@ -303,7 +303,7 @@ app.get('/login', (c) => {
     color: #fff;
     margin-bottom: 10px;
   }
-  .btn:hover { background: #c0392b; }
+  .btn:hover { background: #1976d2; }
   .btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
   .btn-secondary {
     background: transparent;
@@ -896,9 +896,9 @@ app.get('/', async (c) => {
       <div class="panel-header">
         <h2><i class="fas fa-thermometer-half"></i> センサー</h2>
         <div class="sensor-range-btns">
-          <button class="sensor-range-btn active" data-hours="3">3h</button>
+          <button class="sensor-range-btn" data-hours="3">3h</button>
           <button class="sensor-range-btn" data-hours="12">12h</button>
-          <button class="sensor-range-btn" data-hours="24">24h</button>
+          <button class="sensor-range-btn active" data-hours="24">24h</button>
           <button class="sensor-range-btn" data-hours="72">72h</button>
         </div>
         <button id="sensor-refresh-btn" class="icon-btn" title="更新"><i class="fas fa-sync-alt"></i></button>

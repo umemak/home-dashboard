@@ -680,7 +680,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var SENSOR_PROXY = '/api/sensor-proxy';
   var sensorChart = null;
   var sensorState = {
-    hours: 3,
+    hours: 24,
     activeDevice: null,
     activeMetric: 'temperature',
     data: [],
