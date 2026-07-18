@@ -1,6 +1,5 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { serveStatic } from 'hono/cloudflare-workers'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 
 type Bindings = {
@@ -8,12 +7,13 @@ type Bindings = {
   RESEND_API_KEY: string
   JWT_SECRET: string
   ALLOWED_EMAILS: string  // カンマ区切りの許可メールアドレス
+  SWITCHBOT_API_SECRET: string  // switchbot-monitor Worker の API_SECRET
+  ASSETS: Fetcher  // 静的アセット（wrangler.jsonc assets.binding）
+  SWITCHBOT_MONITOR: Fetcher  // 同一アカウントの switchbot-monitor Worker へのサービスバインディング
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
 
-app.use('/static/*', serveStatic({ root: './public' }))
-app.use('/icons/*', serveStatic({ root: './public' }))
 app.use('/api/*', cors())
 
 // ── 認証ユーティリティ ──────────────────────────────────────
@@ -541,16 +541,23 @@ app.get('/manifest.json', (c) => {
     background_color: '#1a1a2e',
     theme_color: '#16213e',
     icons: [
-      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-      { src: '/icons/icon-apple.png', sizes: '180x180', type: 'image/png', purpose: 'apple-touch-icon' }
+      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icons/icon-apple.png', sizes: '180x180', type: 'image/png', purpose: 'any' }
     ]
   }, 200, { 'Content-Type': 'application/manifest+json' })
 })
 
+// favicon.ico (SVGベースのインラインアイコン)
+app.get('/favicon.ico', (c) => {
+  // シンプルな赤い家アイコン SVG を ICO代わりに返す
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#1a1a2e"/><text x="16" y="23" font-size="20" text-anchor="middle">🏠</text></svg>`
+  return new Response(svg, { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' } })
+})
+
 app.get('/sw.js', (c) => {
   const sw = `
-const CACHE = 'ouchi-v2';
+const CACHE = 'ouchi-v3';
 const STATIC = ['/static/style.css', '/static/app.js'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)));
@@ -566,17 +573,18 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // API・認証・HTMLページは常にネットワーク優先
+  // API・認証・HTMLページ・外部リソースは SW を素通り（e.respondWith 呼ばない）
+  // → SW内で fetch が失敗すると ERR_FAILED になるためブラウザに任せる
   if (url.pathname.startsWith('/api/') ||
       url.pathname.startsWith('/auth/') ||
       url.pathname === '/' ||
-      url.pathname === '/login') {
-    e.respondWith(fetch(e.request));
+      url.pathname === '/login' ||
+      url.origin !== self.location.origin) {
     return;
   }
-  // 静的アセットのみキャッシュ利用
+  // 静的アセットのみキャッシュ利用（取得失敗時はネットワークにフォールバック）
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => Response.error()))
   );
 });
 `
@@ -656,8 +664,8 @@ app.delete('/api/tasks/:id', async (c) => {
   return c.json({ ok: true })
 })
 
-// カレンダーイベント
-app.get('/api/events', async (c) => {
+// カレンダーイベント（/api/events は広告ブロッカーにブロックされるため /api/calendar に改名）
+app.get('/api/calendar', async (c) => {
   const month = c.req.query('month')
   let query = 'SELECT * FROM events'
   const params: string[] = []
@@ -669,7 +677,7 @@ app.get('/api/events', async (c) => {
   const { results } = await c.env.DB.prepare(query).bind(...params).all()
   return c.json(results)
 })
-app.post('/api/events', async (c) => {
+app.post('/api/calendar', async (c) => {
   const { title, date, end_date, time, color = 'blue', repeat_type = 'none' } = await c.req.json()
   if (!title?.trim() || !date) return c.json({ error: '必須項目が不足しています' }, 400)
   // end_date が date より前なら無視
@@ -679,7 +687,7 @@ app.post('/api/events', async (c) => {
   ).bind(title.trim(), date, effectiveEndDate, time ?? null, color, repeat_type).first()
   return c.json(r, 201)
 })
-app.delete('/api/events/:id', async (c) => {
+app.delete('/api/calendar/:id', async (c) => {
   await c.env.DB.prepare('DELETE FROM events WHERE id = ?').bind(c.req.param('id')).run()
   return c.json({ ok: true })
 })
@@ -852,6 +860,7 @@ app.get('/', async (c) => {
     <button class="tab-btn active" data-tab="calendar-section"><i class="fas fa-calendar-alt"></i><span>カレンダー</span></button>
     <button class="tab-btn" data-tab="memo-section"><i class="fas fa-sticky-note"></i><span>メモ</span></button>
     <button class="tab-btn" data-tab="task-section"><i class="fas fa-tasks"></i><span>タスク</span></button>
+    <button class="tab-btn" data-tab="sensor-section"><i class="fas fa-thermometer-half"></i><span>センサー</span></button>
   </nav>
 
   <main id="main-content">
@@ -880,6 +889,27 @@ app.get('/', async (c) => {
         <button id="task-add-btn" class="icon-btn add-btn"><i class="fas fa-plus"></i></button>
       </div>
       <div id="task-list"></div>
+    </section>
+
+    <!-- センサーパネル -->
+    <section id="sensor-section" class="panel">
+      <div class="panel-header">
+        <h2><i class="fas fa-thermometer-half"></i> センサー</h2>
+        <div class="sensor-range-btns">
+          <button class="sensor-range-btn active" data-hours="3">3h</button>
+          <button class="sensor-range-btn" data-hours="12">12h</button>
+          <button class="sensor-range-btn" data-hours="24">24h</button>
+          <button class="sensor-range-btn" data-hours="72">72h</button>
+        </div>
+        <button id="sensor-refresh-btn" class="icon-btn" title="更新"><i class="fas fa-sync-alt"></i></button>
+      </div>
+      <div id="sensor-cards"></div>
+      <div id="sensor-chart-area">
+        <div id="sensor-chart-tabs"></div>
+        <div id="sensor-chart-wrap">
+          <canvas id="sensor-chart"></canvas>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -989,10 +1019,68 @@ app.get('/', async (c) => {
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>`
   return c.html(html)
+})
+
+// ── SwitchBot センサーデータ プロキシ（認証必須）────────────────
+
+// GET /api/sensor-proxy  → switchbot-monitor サービスバインディング
+app.get('/api/sensor-proxy', async (c) => {
+  const upstream = 'https://switchbot-monitor.umemak.workers.dev/api/sensor-data'
+  
+  // クエリパラメータを明示的に取得
+  const hours = c.req.query('hours') || '24'
+  const limit = c.req.query('limit') || '1000'
+  const device = c.req.query('device')
+
+  let targetUrl = `${upstream}?hours=${hours}&limit=${limit}`
+  if (device) {
+    targetUrl += `&device=${encodeURIComponent(device)}`
+  }
+
+  const headers: Record<string, string> = {}
+  if (c.env.SWITCHBOT_API_SECRET) {
+    headers['X-API-Secret'] = c.env.SWITCHBOT_API_SECRET
+  }
+
+  try {
+    // サービスバインディング経由で明示的な Request を使って内部呼び出し
+    const req = new Request(targetUrl, {
+      method: 'GET',
+      headers: headers
+    })
+    const res = await c.env.SWITCHBOT_MONITOR.fetch(req)
+    
+    // upstream が 401/403 の場合はダッシュボードの認証エラーと混同しないよう
+    // HTTP 200 でエラー情報を返す（api() のリダイレクトを防ぐ）
+    if (res.status === 401 || res.status === 403) {
+      return c.json({
+        error: 'switchbot-monitor API の認証に失敗しました。SWITCHBOT_API_SECRET を設定してください。',
+        upstream_status: res.status,
+        data: [],
+      }, 200)
+    }
+    const body = await res.text()
+    return new Response(body, {
+      status: res.status,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+      },
+    })
+  } catch (e) {
+    return c.json({ error: 'upstream fetch failed', data: [] }, 502)
+  }
+})
+
+// ── キャッチオール: APIルートにマッチしなかったリクエストは ASSETS にフォールスルー──
+// run_worker_first:true で全リクエストが Worker に来るため、静的ファイルはここで ASSETS から返す
+app.all('*', async (c) => {
+  return c.env.ASSETS.fetch(c.req.raw)
 })
 
 export default app

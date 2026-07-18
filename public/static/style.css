@@ -1101,3 +1101,200 @@ textarea#memo-content {
   .panel-header { padding: 7px 12px; }
   .cal-day { min-height: 28px; font-size: 0.76rem; }
 }
+
+/* ══════════════════════════════════════════════
+   センサーパネル
+   ══════════════════════════════════════════════ */
+
+#sensor-section {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 時間範囲ボタン群 */
+.sensor-range-btns {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.sensor-range-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all .2s;
+  font-weight: 600;
+}
+.sensor-range-btn:hover { background: var(--border); color: var(--text-primary); }
+.sensor-range-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* カードエリア */
+#sensor-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.sensor-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all .2s;
+  flex: 1 1 160px;
+  min-width: 140px;
+}
+.sensor-card:hover {
+  border-color: var(--accent);
+  background: rgba(233,69,96,.07);
+}
+.sensor-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(233,69,96,.3);
+  background: rgba(233,69,96,.1);
+}
+
+.sc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.sc-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.sc-age {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
+.sc-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sc-metric {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.sc-metric i { font-size: 0.75rem; opacity: .8; }
+.sc-metric.temp { color: #ff7675; }
+.sc-metric.hum  { color: #74b9ff; }
+.sc-metric.co2  { color: #55efc4; }
+.sc-metric.bat  { color: #ffd93d; font-size: 0.75rem; font-weight: 400; }
+
+/* グラフエリア */
+#sensor-chart-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 8px 12px 12px;
+}
+
+#sensor-chart-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.sensor-metric-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.sensor-metric-btn:hover { background: var(--border); color: var(--text-primary); }
+.sensor-metric-btn.active {
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.25);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+#sensor-chart-wrap {
+  flex: 1;
+  min-height: 160px;
+  position: relative;
+}
+
+#sensor-chart-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* PC: センサーパネルを4カラム目として幅を確保 */
+@media (min-width: 1024px) {
+  #main-content {
+    grid-template-columns: 300px 1fr 260px;
+    grid-template-rows: 1fr 1fr;
+  }
+  #calendar-section {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+  #memo-section {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  #task-section {
+    grid-column: 3;
+    grid-row: 2;
+  }
+  #sensor-section {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+}
+
+/* タブレット: センサーパネルもタブに含む */
+@media (min-width: 600px) and (max-width: 1023px) {
+  #sensor-section { min-height: 400px; }
+  #sensor-chart-wrap { min-height: 200px; }
+}
+
+/* スマホ: センサーパネル */
+@media (max-width: 599px) {
+  #sensor-cards { gap: 6px; padding: 8px 10px; }
+  .sensor-card { flex: 1 1 140px; min-width: 120px; padding: 8px 10px; }
+  .sc-name { font-size: 0.78rem; }
+  .sc-metric { font-size: 0.85rem; }
+  #sensor-chart-wrap { min-height: 180px; }
+  .sensor-range-btn { padding: 3px 8px; font-size: 0.7rem; }
+}

@@ -376,7 +376,7 @@ document.addEventListener('DOMContentLoaded', function() {
       el.querySelector('.event-del-btn').addEventListener('click', async function(e) {
         e.stopPropagation();
         if (confirm('「' + ev.title + '」を削除しますか？')) {
-          await api('DELETE', '/api/events/' + ev.id);
+          await api('DELETE', '/api/calendar/' + ev.id);
           await loadEvents();
         }
       });
@@ -386,7 +386,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   async function loadEvents() {
     try {
-      var data = await api('GET', '/api/events');
+      var data = await api('GET', '/api/calendar');
       if (data) { state.events = data; renderCalendar(); }
     } catch(e) {}
   }
@@ -584,7 +584,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var endDate = $('event-end-date').value || null;
     if (!title || !date) { alert('タイトルと開始日を入力してください'); return; }
     if (endDate && endDate <= date) { alert('終了日は開始日より後にしてください'); return; }
-    await api('POST', '/api/events', {
+    await api('POST', '/api/calendar', {
       title, date, end_date: endDate,
       time: $('event-time').value || null,
       color: state.selectedEventColor
@@ -661,6 +661,10 @@ document.addEventListener('DOMContentLoaded', function() {
       document.querySelectorAll('.panel').forEach(function(panel) {
         panel.classList.toggle('tab-active', panel.id === targetId);
       });
+      // センサータブに切り替わったらデータ取得
+      if (targetId === 'sensor-section' && !state.sensorLoaded) {
+        loadSensorData();
+      }
     }
 
     tabs.forEach(function(btn) {
@@ -671,6 +675,268 @@ document.addEventListener('DOMContentLoaded', function() {
     switchTab('calendar-section');
   }
   initTabs();
+
+  // ─ センサー ───────────────────────────────────
+  var SENSOR_PROXY = '/api/sensor-proxy';
+  var sensorChart = null;
+  var sensorState = {
+    hours: 3,
+    activeDevice: null,
+    activeMetric: 'temperature',
+    data: [],
+  };
+
+  var METRIC_CONFIG = {
+    temperature: { label: '温度 (°C)',   color: '#ff7675', borderColor: '#ff4757', icon: 'fa-thermometer-half' },
+    humidity:    { label: '湿度 (%)',     color: '#74b9ff', borderColor: '#0984e3', icon: 'fa-tint' },
+    co2:         { label: 'CO₂ (ppm)',   color: '#55efc4', borderColor: '#00b894', icon: 'fa-wind' },
+  };
+
+  function groupByDevice(rows) {
+    var map = {};
+    rows.forEach(function(r) {
+      if (!map[r.device_name]) map[r.device_name] = [];
+      map[r.device_name].push(r);
+    });
+    return map;
+  }
+
+  function latestByDevice(rows) {
+    var map = {};
+    rows.forEach(function(r) {
+      if (!map[r.device_name] || r.timestamp > map[r.device_name].timestamp) {
+        map[r.device_name] = r;
+      }
+    });
+    return map;
+  }
+
+  function renderSensorCards(rows) {
+    var latest = latestByDevice(rows);
+    var cards = $('sensor-cards');
+    if (!cards) return;
+    cards.innerHTML = '';
+    var devices = Object.keys(latest);
+    if (!devices.length) {
+      cards.innerHTML = '<div class="empty-state"><i class="fas fa-satellite-dish"></i>センサーデータなし</div>';
+      return;
+    }
+    devices.forEach(function(name) {
+      var d = latest[name];
+      var ts = d.timestamp ? new Date(d.timestamp.endsWith('Z') ? d.timestamp : d.timestamp + 'Z') : null;
+      var age = ts ? Math.round((Date.now() - ts.getTime()) / 60000) : null;
+      var ageStr = age !== null ? (age < 60 ? age + '分前' : Math.round(age/60) + '時間前') : '';
+      var card = document.createElement('div');
+      card.className = 'sensor-card' + (sensorState.activeDevice === name ? ' active' : '');
+      card.dataset.device = name;
+
+      var metrics = '';
+      if (d.temperature !== null && d.temperature !== undefined)
+        metrics += '<span class="sc-metric temp"><i class="fas fa-thermometer-half"></i>' + d.temperature.toFixed(1) + '°C</span>';
+      if (d.humidity !== null && d.humidity !== undefined)
+        metrics += '<span class="sc-metric hum"><i class="fas fa-tint"></i>' + d.humidity + '%</span>';
+      if (d.co2 !== null && d.co2 !== undefined)
+        metrics += '<span class="sc-metric co2"><i class="fas fa-wind"></i>' + d.co2 + 'ppm</span>';
+      if (d.battery !== null && d.battery !== undefined) {
+        var batIcon = d.battery > 50 ? 'fa-battery-full' : d.battery > 20 ? 'fa-battery-half' : 'fa-battery-quarter';
+        metrics += '<span class="sc-metric bat"><i class="fas ' + batIcon + '"></i>' + d.battery + '%</span>';
+      }
+
+      card.innerHTML =
+        '<div class="sc-header">' +
+          '<span class="sc-name">' + escHtml(name) + '</span>' +
+          '<span class="sc-age">' + ageStr + '</span>' +
+        '</div>' +
+        '<div class="sc-metrics">' + metrics + '</div>';
+
+      card.addEventListener('click', function() {
+        sensorState.activeDevice = name;
+        document.querySelectorAll('.sensor-card').forEach(function(c){ c.classList.remove('active'); });
+        card.classList.add('active');
+        renderSensorChartTabs();
+        drawSensorChart();
+      });
+      cards.appendChild(card);
+    });
+  }
+
+  function renderSensorChartTabs() {
+    var tabEl = $('sensor-chart-tabs');
+    if (!tabEl) return;
+    tabEl.innerHTML = '';
+    var device = sensorState.activeDevice;
+    var rows = device ? sensorState.data.filter(function(r){ return r.device_name === device; }) : [];
+    // 利用可能なメトリクスを判定
+    var metrics = [];
+    if (rows.some(function(r){ return r.temperature !== null && r.temperature !== undefined; })) metrics.push('temperature');
+    if (rows.some(function(r){ return r.humidity !== null && r.humidity !== undefined; })) metrics.push('humidity');
+    if (rows.some(function(r){ return r.co2 !== null && r.co2 !== undefined; })) metrics.push('co2');
+    if (!metrics.length) metrics = ['temperature'];
+    if (!metrics.includes(sensorState.activeMetric)) sensorState.activeMetric = metrics[0];
+
+    metrics.forEach(function(m) {
+      var btn = document.createElement('button');
+      btn.className = 'sensor-metric-btn' + (m === sensorState.activeMetric ? ' active' : '');
+      btn.dataset.metric = m;
+      var cfg = METRIC_CONFIG[m];
+      btn.innerHTML = '<i class="fas ' + cfg.icon + '"></i>' + cfg.label;
+      btn.addEventListener('click', function() {
+        sensorState.activeMetric = m;
+        document.querySelectorAll('.sensor-metric-btn').forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        drawSensorChart();
+      });
+      tabEl.appendChild(btn);
+    });
+  }
+
+  function drawSensorChart() {
+    var canvas = $('sensor-chart');
+    if (!canvas) return;
+    var device = sensorState.activeDevice;
+    var metric = sensorState.activeMetric;
+    var cfg = METRIC_CONFIG[metric] || METRIC_CONFIG.temperature;
+
+    var rows = (device
+      ? sensorState.data.filter(function(r){ return r.device_name === device; })
+      : sensorState.data
+    ).filter(function(r){ return r[metric] !== null && r[metric] !== undefined; });
+
+    // 時系列昇順
+    rows = rows.slice().sort(function(a, b){ return a.timestamp < b.timestamp ? -1 : 1; });
+
+    // 1分バケット平均
+    var buckets = {};
+    rows.forEach(function(r) {
+      var ts = r.timestamp.endsWith('Z') ? r.timestamp : r.timestamp + 'Z';
+      var d = new Date(ts);
+      // 5分バケット
+      d.setSeconds(0, 0);
+      d.setMinutes(Math.floor(d.getMinutes() / 5) * 5);
+      var key = d.toISOString();
+      if (!buckets[key]) buckets[key] = { sum: 0, count: 0, ts: d };
+      buckets[key].sum += r[metric];
+      buckets[key].count++;
+    });
+    var sorted = Object.values(buckets).sort(function(a, b){ return a.ts - b.ts; });
+    var labels = sorted.map(function(b){
+      return b.ts.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+    });
+    var values = sorted.map(function(b){ return Math.round(b.sum / b.count * 10) / 10; });
+
+    if (sensorChart) {
+      sensorChart.destroy();
+      sensorChart = null;
+    }
+
+    if (!values.length) {
+      canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
+
+    sensorChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: cfg.label,
+          data: values,
+          borderColor: cfg.borderColor,
+          backgroundColor: cfg.color + '22',
+          borderWidth: 2,
+          pointRadius: values.length > 100 ? 0 : 2,
+          pointHoverRadius: 4,
+          tension: 0.3,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 400 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1a1a2e',
+            titleColor: '#a7a9be',
+            bodyColor: '#fffffe',
+            borderColor: '#2a2a4a',
+            borderWidth: 1,
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: '#a7a9be',
+              font: { size: 10 },
+              maxTicksLimit: 10,
+              maxRotation: 0,
+            },
+            grid: { color: '#2a2a4a' },
+          },
+          y: {
+            ticks: { color: '#a7a9be', font: { size: 10 } },
+            grid: { color: '#2a2a4a' },
+          }
+        }
+      }
+    });
+  }
+
+  async function loadSensorData() {
+    var cards = $('sensor-cards');
+    if (cards) cards.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i>読み込み中...</div>';
+    try {
+      var path = SENSOR_PROXY + '?hours=' + sensorState.hours + '&limit=5000';
+      var json = await api('GET', path);
+      // api() が null を返す場合はセッション切れ（すでにリダイレクト済み）
+      if (!json) return;
+      // upstream 認証エラーなどのエラーメッセージを表示
+      if (json.error && !json.data) {
+        if (cards) cards.innerHTML = '<div class="empty-state"><i class="fas fa-key"></i>' + escHtml(json.error) + '</div>';
+        return;
+      }
+      sensorState.data = json.data || [];
+      state.sensorLoaded = true;
+
+      renderSensorCards(sensorState.data);
+
+      // 最初のデバイスを自動選択
+      if (!sensorState.activeDevice && sensorState.data.length) {
+        var devices = Object.keys(groupByDevice(sensorState.data));
+        if (devices.length) {
+          sensorState.activeDevice = devices[0];
+          var firstCard = document.querySelector('.sensor-card');
+          if (firstCard) firstCard.classList.add('active');
+        }
+      }
+      renderSensorChartTabs();
+      drawSensorChart();
+    } catch(e) {
+      console.warn('sensor load error:', e);
+      if (cards) cards.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i>取得失敗: ' + e.message + '</div>';
+    }
+  }
+
+  // 時間範囲ボタン
+  document.querySelectorAll('.sensor-range-btn').forEach(function(btn) {
+    on(btn, 'click', function() {
+      sensorState.hours = parseInt(btn.dataset.hours, 10);
+      sensorState.activeDevice = null;
+      sensorState.data = [];
+      state.sensorLoaded = false;
+      document.querySelectorAll('.sensor-range-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      loadSensorData();
+    });
+  });
+
+  // センサー更新ボタン
+  on($('sensor-refresh-btn'), 'click', function() {
+    sensorState.data = [];
+    state.sensorLoaded = false;
+    loadSensorData();
+  });
 
   // ─ Wake Lock ──────────────────────────────────
   async function requestWakeLock() {
