@@ -840,7 +840,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // 更新ボタン
   on($('refresh-btn'), 'click', async function() {
-    await Promise.all([loadMemos(), loadTasks(), loadEvents(), loadWeather()]);
+    await Promise.all([loadMemos(), loadTasks(), loadEvents(), loadWeather(), loadYoutubeVideos(), loadSensorData()]);
     $('last-update').textContent = '最終更新: ' + new Date().toLocaleTimeString('ja-JP');
   });
 
@@ -1148,9 +1148,13 @@ document.addEventListener('DOMContentLoaded', function() {
       document.querySelectorAll('.panel').forEach(function(panel) {
         panel.classList.toggle('tab-active', panel.id === targetId);
       });
-      // センサータブに切り替わったらデータ取得
-      if (targetId === 'sensor-section' && !state.sensorLoaded) {
-        loadSensorData();
+      // センサータブに切り替わったらデータ取得 / リサイズ
+      if (targetId === 'sensor-section') {
+        if (!state.sensorLoaded) {
+          loadSensorData();
+        } else if (sensorChart) {
+          setTimeout(function() { sensorChart.resize(); }, 50);
+        }
       }
     }
 
@@ -1174,14 +1178,14 @@ document.addEventListener('DOMContentLoaded', function() {
   var sensorState = {
     hours: 24,
     activeDevice: null,
-    activeMetric: 'temperature',
+    activeMetrics: ['temperature', 'humidity', 'co2'],
     data: [],
   };
 
   var METRIC_CONFIG = {
-    temperature: { label: '温度 (°C)',   color: '#ff7675', borderColor: '#ff4757', icon: 'fa-thermometer-half' },
-    humidity:    { label: '湿度 (%)',     color: '#74b9ff', borderColor: '#0984e3', icon: 'fa-tint' },
-    co2:         { label: 'CO₂ (ppm)',   color: '#55efc4', borderColor: '#00b894', icon: 'fa-wind' },
+    temperature: { label: '温度 (°C)',   color: '#ff7675', borderColor: '#ff4757', icon: 'fa-thermometer-half', position: 'left' },
+    humidity:    { label: '湿度 (%)',     color: '#74b9ff', borderColor: '#0984e3', icon: 'fa-tint',             position: 'right' },
+    co2:         { label: 'CO₂ (ppm)',   color: '#55efc4', borderColor: '#00b894', icon: 'fa-wind',             position: 'right' },
   };
 
   function groupByDevice(rows) {
@@ -1259,23 +1263,37 @@ document.addEventListener('DOMContentLoaded', function() {
     var device = sensorState.activeDevice;
     var rows = device ? sensorState.data.filter(function(r){ return r.device_name === device; }) : [];
     // 利用可能なメトリクスを判定
-    var metrics = [];
-    if (rows.some(function(r){ return r.temperature !== null && r.temperature !== undefined; })) metrics.push('temperature');
-    if (rows.some(function(r){ return r.humidity !== null && r.humidity !== undefined; })) metrics.push('humidity');
-    if (rows.some(function(r){ return r.co2 !== null && r.co2 !== undefined; })) metrics.push('co2');
-    if (!metrics.length) metrics = ['temperature'];
-    if (!metrics.includes(sensorState.activeMetric)) sensorState.activeMetric = metrics[0];
+    var availableMetrics = [];
+    if (rows.some(function(r){ return r.temperature !== null && r.temperature !== undefined; })) availableMetrics.push('temperature');
+    if (rows.some(function(r){ return r.humidity !== null && r.humidity !== undefined; })) availableMetrics.push('humidity');
+    if (rows.some(function(r){ return r.co2 !== null && r.co2 !== undefined; })) availableMetrics.push('co2');
+    if (!availableMetrics.length) availableMetrics = ['temperature'];
 
-    metrics.forEach(function(m) {
+    if (!sensorState.activeMetrics || !sensorState.activeMetrics.length) {
+      sensorState.activeMetrics = availableMetrics.slice();
+    } else {
+      sensorState.activeMetrics = sensorState.activeMetrics.filter(function(m){ return availableMetrics.includes(m); });
+      if (!sensorState.activeMetrics.length) sensorState.activeMetrics = [availableMetrics[0]];
+    }
+
+    availableMetrics.forEach(function(m) {
       var btn = document.createElement('button');
-      btn.className = 'sensor-metric-btn' + (m === sensorState.activeMetric ? ' active' : '');
+      var isActive = sensorState.activeMetrics.includes(m);
+      btn.className = 'sensor-metric-btn' + (isActive ? ' active' : '');
       btn.dataset.metric = m;
       var cfg = METRIC_CONFIG[m];
       btn.innerHTML = '<i class="fas ' + cfg.icon + '"></i>' + cfg.label;
       btn.addEventListener('click', function() {
-        sensorState.activeMetric = m;
-        document.querySelectorAll('.sensor-metric-btn').forEach(function(b){ b.classList.remove('active'); });
-        btn.classList.add('active');
+        var idx = sensorState.activeMetrics.indexOf(m);
+        if (idx >= 0) {
+          if (sensorState.activeMetrics.length > 1) {
+            sensorState.activeMetrics.splice(idx, 1);
+            btn.classList.remove('active');
+          }
+        } else {
+          sensorState.activeMetrics.push(m);
+          btn.classList.add('active');
+        }
         drawSensorChart();
       });
       tabEl.appendChild(btn);
@@ -1286,42 +1304,92 @@ document.addEventListener('DOMContentLoaded', function() {
     var canvas = $('sensor-chart');
     if (!canvas) return;
     var device = sensorState.activeDevice;
-    var metric = sensorState.activeMetric;
-    var cfg = METRIC_CONFIG[metric] || METRIC_CONFIG.temperature;
+    var activeMetrics = sensorState.activeMetrics || ['temperature'];
 
-    var rows = (device
+    var rows = device
       ? sensorState.data.filter(function(r){ return r.device_name === device; })
-      : sensorState.data
-    ).filter(function(r){ return r[metric] !== null && r[metric] !== undefined; });
+      : sensorState.data;
 
     // 時系列昇順
     rows = rows.slice().sort(function(a, b){ return a.timestamp < b.timestamp ? -1 : 1; });
 
-    // 1分バケット平均
+    // 5分バケット平均
     var buckets = {};
     rows.forEach(function(r) {
       var ts = r.timestamp.endsWith('Z') ? r.timestamp : r.timestamp + 'Z';
       var d = new Date(ts);
-      // 5分バケット
       d.setSeconds(0, 0);
       d.setMinutes(Math.floor(d.getMinutes() / 5) * 5);
       var key = d.toISOString();
-      if (!buckets[key]) buckets[key] = { sum: 0, count: 0, ts: d };
-      buckets[key].sum += r[metric];
-      buckets[key].count++;
+      if (!buckets[key]) {
+        buckets[key] = { ts: d, temperature: [], humidity: [], co2: [] };
+      }
+      if (r.temperature !== null && r.temperature !== undefined) buckets[key].temperature.push(r.temperature);
+      if (r.humidity !== null && r.humidity !== undefined) buckets[key].humidity.push(r.humidity);
+      if (r.co2 !== null && r.co2 !== undefined) buckets[key].co2.push(r.co2);
     });
+
     var sorted = Object.values(buckets).sort(function(a, b){ return a.ts - b.ts; });
     var labels = sorted.map(function(b){
       return b.ts.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
     });
-    var values = sorted.map(function(b){ return Math.round(b.sum / b.count * 10) / 10; });
+
+    var datasets = [];
+    var scales = {
+      x: {
+        ticks: { color: '#a7a9be', font: { size: 10 }, maxTicksLimit: 10, maxRotation: 0 },
+        grid: { color: '#2a2a4a' },
+      }
+    };
+
+    var firstYAxis = true;
+
+    activeMetrics.forEach(function(m) {
+      var cfg = METRIC_CONFIG[m];
+      if (!cfg) return;
+
+      var values = sorted.map(function(b) {
+        var arr = b[m];
+        if (!arr || !arr.length) return null;
+        var sum = arr.reduce(function(a, c){ return a + c; }, 0);
+        return Math.round(sum / arr.length * 10) / 10;
+      });
+
+      if (values.some(function(v){ return v !== null; })) {
+        var yAxisId = 'y_' + m;
+        datasets.push({
+          label: cfg.label,
+          data: values,
+          borderColor: cfg.borderColor,
+          backgroundColor: cfg.color + '15',
+          borderWidth: 2,
+          pointRadius: values.length > 100 ? 0 : 2,
+          pointHoverRadius: 4,
+          tension: 0.3,
+          fill: false,
+          yAxisID: yAxisId,
+        });
+
+        scales[yAxisId] = {
+          type: 'linear',
+          display: true,
+          position: cfg.position || 'left',
+          ticks: { color: cfg.borderColor, font: { size: 10 } },
+          grid: {
+            color: firstYAxis ? '#2a2a4a' : 'transparent',
+            drawOnChartArea: firstYAxis,
+          }
+        };
+        firstYAxis = false;
+      }
+    });
 
     if (sensorChart) {
       sensorChart.destroy();
       sensorChart = null;
     }
 
-    if (!values.length) {
+    if (!datasets.length) {
       canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
       return;
     }
@@ -1330,24 +1398,21 @@ document.addEventListener('DOMContentLoaded', function() {
       type: 'line',
       data: {
         labels: labels,
-        datasets: [{
-          label: cfg.label,
-          data: values,
-          borderColor: cfg.borderColor,
-          backgroundColor: cfg.color + '22',
-          borderWidth: 2,
-          pointRadius: values.length > 100 ? 0 : 2,
-          pointHoverRadius: 4,
-          tension: 0.3,
-          fill: true,
-        }]
+        datasets: datasets,
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         animation: { duration: 400 },
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
         plugins: {
-          legend: { display: false },
+          legend: {
+            display: datasets.length > 1,
+            labels: { color: '#a7a9be', font: { size: 11 }, boxWidth: 12 }
+          },
           tooltip: {
             backgroundColor: '#1a1a2e',
             titleColor: '#a7a9be',
@@ -1356,21 +1421,7 @@ document.addEventListener('DOMContentLoaded', function() {
             borderWidth: 1,
           }
         },
-        scales: {
-          x: {
-            ticks: {
-              color: '#a7a9be',
-              font: { size: 10 },
-              maxTicksLimit: 10,
-              maxRotation: 0,
-            },
-            grid: { color: '#2a2a4a' },
-          },
-          y: {
-            ticks: { color: '#a7a9be', font: { size: 10 } },
-            grid: { color: '#2a2a4a' },
-          }
-        }
+        scales: scales
       }
     });
   }
@@ -1482,12 +1533,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     await loadSettings();
     applyWidgetVisibility();
-    await Promise.all([loadMemos(), loadTasks(), loadEvents(), loadYoutubeVideos()]);
+    await Promise.all([loadMemos(), loadTasks(), loadEvents(), loadYoutubeVideos(), loadSensorData()]);
     await loadWeather();
 
     setInterval(loadWeather, 30*60*1000);
     setInterval(async function() {
-      await Promise.all([loadMemos(), loadTasks(), loadEvents(), loadYoutubeVideos()]);
+      await Promise.all([loadMemos(), loadTasks(), loadEvents(), loadYoutubeVideos(), loadSensorData()]);
       $('last-update').textContent = '最終更新: ' + new Date().toLocaleTimeString('ja-JP');
     }, 5*60*1000);
 
