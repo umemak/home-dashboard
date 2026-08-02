@@ -5,3 +5,5 @@ dist/
 *.log
 .pm2/
 *.tar.gz
+agy/
+2026-08-02.md
