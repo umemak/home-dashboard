@@ -1297,7 +1297,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     tabs.forEach(function(btn) {
-      on(btn, 'click', function() { switchTab(btn.dataset.tab); });
+      var lastTouchTime = 0;
+      btn.addEventListener('touchend', function(e) {
+        lastTouchTime = Date.now();
+        switchTab(btn.dataset.tab);
+      }, { passive: true });
+      btn.addEventListener('click', function(e) {
+        if (Date.now() - lastTouchTime < 400) return;
+        switchTab(btn.dataset.tab);
+      });
     });
 
     // アジェンダ クイック追加ボタン

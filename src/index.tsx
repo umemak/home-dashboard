@@ -557,7 +557,7 @@ app.get('/favicon.ico', (c) => {
 
 app.get('/sw.js', (c) => {
   const sw = `
-const CACHE = 'ouchi-v4';
+const CACHE = 'ouchi-v5';
 const STATIC = ['/static/style.css', '/static/app.js'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)));
