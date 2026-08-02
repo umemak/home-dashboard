@@ -13,7 +13,7 @@
   --text-primary: #fffffe;
   --text-muted:   #a7a9be;
   --border:       #2a2a4a;
-  --header-h:     108px;
+  --header-h:     135px;
   --footer-h:     48px;
   --tabnav-h:     56px;
   --radius:       12px;
@@ -160,7 +160,7 @@ html, body {
   flex-direction: column;
   align-items: center;
   gap: 1px;
-  padding: 3px 5px;
+  padding: 2px 5px;
   border-radius: 7px;
   background: rgba(255,255,255,.04);
   min-width: 48px;
@@ -185,6 +185,16 @@ html, body {
   font-size: 0.62rem;
   color: #74b9ff;
   line-height: 1;
+  min-height: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fc-pop-zero,
+.hl-pop-zero {
+  color: var(--text-muted);
+  opacity: 0.6;
 }
 
 .fc-temps {
@@ -245,7 +255,11 @@ html, body {
 .hl-pop {
   font-size: 0.58rem;
   color: #74b9ff;
-  min-height: 0.8em;
+  line-height: 1;
+  min-height: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ── 天気詳細パネル（スマホ用トグル） ────────── */

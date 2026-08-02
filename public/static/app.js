@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
             '<div class="hl-hour">' + String(h.hour).padStart(2,'0') + '時</div>' +
             '<i class="fas ' + ic + ' hl-icon"></i>' +
             '<div class="hl-temp">' + h.temp + '°</div>' +
-            (h.pop > 0 ? '<div class="hl-pop">' + h.pop + '%</div>' : '<div class="hl-pop"></div>');
+            (h.pop > 0 ? '<div class="hl-pop">' + h.pop + '%</div>' : '<div class="hl-pop hl-pop-zero">-</div>');
           container.appendChild(el);
         });
       }
@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', function() {
           var wd = WEEKDAYS_SHORT[date.getDay()];
           var label = i === 0 ? '今日' : (i === 1 ? '明日' : (date.getMonth()+1) + '/' + date.getDate() + '(' + wd + ')');
           var ic = weatherIcon(day.weather);
-          var popHtml = day.pop > 0 ? '<span class="fc-pop">' + day.pop + '%</span>' : '';
+          var popHtml = day.pop > 0 ? '<span class="fc-pop">' + day.pop + '%</span>' : '<span class="fc-pop fc-pop-zero">-</span>';
           var el = document.createElement('div');
           el.className = 'fc-day' + (i === 0 ? ' fc-today' : '');
           el.innerHTML =
