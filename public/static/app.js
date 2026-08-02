@@ -252,8 +252,8 @@ document.addEventListener('DOMContentLoaded', function() {
       e.preventDefault();
       e.stopPropagation();
       var isOpen = !panel.classList.contains('hidden');
-      panel.classList.toggle('hidden', isOpen);
-      if (toggleIcon) toggleIcon.classList.toggle('open', !isOpen);
+      if (isOpen) { panel.classList.add('hidden'); } else { panel.classList.remove('hidden'); }
+      if (toggleIcon) { if (!isOpen) { toggleIcon.classList.add('open'); } else { toggleIcon.classList.remove('open'); } }
     }
 
     // touchstart + click 両方登録（iOS Safari対応）
@@ -663,7 +663,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   function highlightPriority(value) {
     document.querySelectorAll('.prio-btn').forEach(function(b){
-      b.classList.toggle('active', b.dataset.priority===value);
+      if (b.dataset.priority===value) { b.classList.add('active'); } else { b.classList.remove('active'); }
     });
   }
 
@@ -798,7 +798,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var isVisible = vis[panelId] !== false;
       var panel = $(panelId);
       if (panel) {
-        panel.classList.toggle('widget-hidden', !isVisible);
+        if (!isVisible) { panel.classList.add('widget-hidden'); } else { panel.classList.remove('widget-hidden'); }
       }
       var tabBtn = document.querySelector('.tab-btn[data-tab="' + panelId + '"]');
       if (tabBtn) {
@@ -1019,7 +1019,8 @@ document.addEventListener('DOMContentLoaded', function() {
       e.stopPropagation();
       var panel = btn.closest('.panel');
       if (!panel) return;
-      var isMax = panel.classList.toggle('maximized');
+      var isMax = !panel.classList.contains('maximized');
+      if (isMax) { panel.classList.add('maximized'); } else { panel.classList.remove('maximized'); }
       var icon = btn.querySelector('i');
       if (icon) {
         icon.className = isMax ? 'fas fa-compress' : 'fas fa-expand';
@@ -1344,11 +1345,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function switchTab(targetId) {
       // タブボタン
       tabs.forEach(function(btn) {
-        btn.classList.toggle('active', btn.dataset.tab === targetId);
+        if (btn.dataset.tab === targetId) { btn.classList.add('active'); } else { btn.classList.remove('active'); }
       });
       // パネル
       document.querySelectorAll('.panel').forEach(function(panel) {
-        panel.classList.toggle('tab-active', panel.id === targetId);
+        if (panel.id === targetId) { panel.classList.add('tab-active'); } else { panel.classList.remove('tab-active'); }
       });
       // センサータブに切り替わったらデータ取得 / リサイズ
       if (targetId === 'sensor-section') {
