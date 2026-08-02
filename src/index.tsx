@@ -1058,9 +1058,11 @@ app.get('/', async (c) => {
         <button id="sensor-refresh-btn" class="icon-btn" title="更新"><i class="fas fa-sync-alt"></i></button>
         <button class="icon-btn panel-max-btn" title="最大化/元に戻す"><i class="fas fa-expand"></i></button>
       </div>
-      <div id="sensor-cards"></div>
       <div id="sensor-chart-area">
-        <div id="sensor-chart-tabs"></div>
+        <div class="sensor-controls-bar">
+          <div id="sensor-chart-tabs"></div>
+          <div id="sensor-cards"></div>
+        </div>
         <div id="sensor-chart-wrap">
           <canvas id="sensor-chart"></canvas>
         </div>

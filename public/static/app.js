@@ -1192,9 +1192,9 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   var METRIC_CONFIG = {
-    temperature: { label: '温度 (°C)',   color: '#ff7675', borderColor: '#ff4757', icon: 'fa-thermometer-half', position: 'left' },
-    humidity:    { label: '湿度 (%)',     color: '#74b9ff', borderColor: '#0984e3', icon: 'fa-tint',             position: 'right' },
-    co2:         { label: 'CO₂ (ppm)',   color: '#55efc4', borderColor: '#00b894', icon: 'fa-wind',             position: 'right' },
+    temperature: { label: '温度', color: '#ff7675', borderColor: '#ff4757', icon: 'fa-thermometer-half', position: 'left' },
+    humidity:    { label: '湿度', color: '#74b9ff', borderColor: '#0984e3', icon: 'fa-tint',             position: 'right' },
+    co2:         { label: 'CO₂',  color: '#55efc4', borderColor: '#00b894', icon: 'fa-wind',             position: 'right' },
   };
 
   function groupByDevice(rows) {
@@ -1223,36 +1223,35 @@ document.addEventListener('DOMContentLoaded', function() {
     cards.innerHTML = '';
     var devices = Object.keys(latest);
     if (!devices.length) {
-      cards.innerHTML = '<div class="empty-state"><i class="fas fa-satellite-dish"></i>センサーデータなし</div>';
+      cards.innerHTML = '<div class="empty-state">データなし</div>';
       return;
     }
     devices.forEach(function(name) {
       var d = latest[name];
       var ts = d.timestamp ? new Date(d.timestamp.endsWith('Z') ? d.timestamp : d.timestamp + 'Z') : null;
       var age = ts ? Math.round((Date.now() - ts.getTime()) / 60000) : null;
-      var ageStr = age !== null ? (age < 60 ? age + '分前' : Math.round(age/60) + '時間前') : '';
+      var ageStr = age !== null ? (age < 60 ? age + 'm前' : Math.round(age/60) + 'h前') : '';
       var card = document.createElement('div');
       card.className = 'sensor-card' + (sensorState.activeDevice === name ? ' active' : '');
       card.dataset.device = name;
 
       var metrics = '';
       if (d.temperature !== null && d.temperature !== undefined)
-        metrics += '<span class="sc-metric temp"><i class="fas fa-thermometer-half"></i>' + d.temperature.toFixed(1) + '°C</span>';
+        metrics += '<span class="sc-metric temp">' + d.temperature.toFixed(1) + '°C</span>';
       if (d.humidity !== null && d.humidity !== undefined)
-        metrics += '<span class="sc-metric hum"><i class="fas fa-tint"></i>' + d.humidity + '%</span>';
+        metrics += '<span class="sc-metric hum">' + d.humidity + '%</span>';
       if (d.co2 !== null && d.co2 !== undefined)
-        metrics += '<span class="sc-metric co2"><i class="fas fa-wind"></i>' + d.co2 + 'ppm</span>';
+        metrics += '<span class="sc-metric co2">' + d.co2 + 'ppm</span>';
       if (d.battery !== null && d.battery !== undefined) {
-        var batIcon = d.battery > 50 ? 'fa-battery-full' : d.battery > 20 ? 'fa-battery-half' : 'fa-battery-quarter';
-        metrics += '<span class="sc-metric bat"><i class="fas ' + batIcon + '"></i>' + d.battery + '%</span>';
+        metrics += '<span class="sc-metric bat">' + d.battery + '%</span>';
       }
 
       card.innerHTML =
-        '<div class="sc-header">' +
+        '<div class="sc-inline">' +
           '<span class="sc-name">' + escHtml(name) + '</span>' +
-          '<span class="sc-age">' + ageStr + '</span>' +
-        '</div>' +
-        '<div class="sc-metrics">' + metrics + '</div>';
+          '<div class="sc-metrics">' + metrics + '</div>' +
+          (ageStr ? '<span class="sc-age">' + ageStr + '</span>' : '') +
+        '</div>';
 
       card.addEventListener('click', function() {
         sensorState.activeDevice = name;
@@ -1291,7 +1290,7 @@ document.addEventListener('DOMContentLoaded', function() {
       btn.className = 'sensor-metric-btn' + (isActive ? ' active' : '');
       btn.dataset.metric = m;
       var cfg = METRIC_CONFIG[m];
-      btn.innerHTML = '<i class="fas ' + cfg.icon + '"></i>' + cfg.label;
+      btn.innerText = cfg.label;
       btn.addEventListener('click', function() {
         var idx = sensorState.activeMetrics.indexOf(m);
         if (idx >= 0) {

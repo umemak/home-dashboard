@@ -1199,25 +1199,70 @@ textarea#memo-content {
   color: #fff;
 }
 
-/* カードエリア */
+/* ツールバー（ボタン群＋現在表示エリア：1行で収める） */
+.sensor-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+.sensor-controls-bar::-webkit-scrollbar { display: none; }
+
+#sensor-chart-tabs {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+
+.sensor-metric-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+.sensor-metric-btn:hover { background: var(--border); color: var(--text-primary); }
+.sensor-metric-btn.active {
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.25);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* カードエリア (ボタンの右側：1行固定) */
 #sensor-cards {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 12px;
+  flex-wrap: nowrap;
+  gap: 4px;
+  align-items: center;
+  padding: 0;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
+  margin-left: auto;
 }
 
 .sensor-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 14px;
+  border-radius: 6px;
+  padding: 3px 8px;
   cursor: pointer;
   transition: all .2s;
-  flex: 1 1 160px;
-  min-width: 140px;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 .sensor-card:hover {
   border-color: var(--accent);
@@ -1225,53 +1270,52 @@ textarea#memo-content {
 }
 .sensor-card.active {
   border-color: var(--accent);
-  box-shadow: 0 0 12px rgba(233,69,96,.3);
+  box-shadow: 0 0 10px rgba(233,69,96,.3);
   background: rgba(233,69,96,.1);
 }
 
-.sc-header {
+.sc-inline {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 8px;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
 }
 
 .sc-name {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 140px;
+  max-width: 90px;
 }
 
 .sc-age {
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   color: var(--text-muted);
   flex-shrink: 0;
-  margin-left: 6px;
+  margin-left: 2px;
 }
 
 .sc-metrics {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: 4px;
 }
 
 .sc-metric {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 0.9rem;
+  gap: 2px;
+  font-size: 0.78rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.sc-metric i { font-size: 0.75rem; opacity: .8; }
+.sc-metric i { display: none; }
 .sc-metric.temp { color: #ff7675; }
 .sc-metric.hum  { color: #74b9ff; }
 .sc-metric.co2  { color: #55efc4; }
-.sc-metric.bat  { color: #ffd93d; font-size: 0.75rem; font-weight: 400; }
+.sc-metric.bat  { color: #ffd93d; font-size: 0.7rem; font-weight: 400; }
 
 /* グラフエリア */
 #sensor-chart-area {
@@ -1280,13 +1324,6 @@ textarea#memo-content {
   flex-direction: column;
   min-height: 0;
   padding: 8px 12px 12px;
-}
-
-#sensor-chart-tabs {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
-  flex-shrink: 0;
 }
 
 .sensor-metric-btn {
@@ -1487,10 +1524,11 @@ textarea#memo-content {
 
 /* スマホ */
 @media (max-width: 599px) {
-  #sensor-cards { gap: 6px; padding: 8px 10px; }
-  .sensor-card { flex: 1 1 140px; min-width: 120px; padding: 8px 10px; }
-  .sc-name { font-size: 0.78rem; }
-  .sc-metric { font-size: 0.85rem; }
+  .sensor-controls-bar { gap: 6px; }
+  #sensor-cards { gap: 4px; margin-left: 0; }
+  .sensor-card { padding: 3px 6px; }
+  .sc-name { font-size: 0.75rem; max-width: 80px; }
+  .sc-metric { font-size: 0.78rem; }
   #sensor-chart-wrap { min-height: 180px; }
   .sensor-range-btn { padding: 3px 8px; font-size: 0.7rem; }
 }
