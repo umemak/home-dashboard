@@ -1421,18 +1421,50 @@ textarea#memo-content {
   color: #ff7675;
 }
 
-/* PC (1024px以上): 画面内に収まる2行×3列構成 */
+/* PC (1024px以上): 画面内に収まる2行×4列構成 */
 @media (min-width: 1024px) {
   #main-content {
-    grid-template-columns: 280px minmax(0, 1fr) 280px;
+    grid-template-columns: 280px 1fr 1fr 280px;
     grid-template-rows: repeat(2, minmax(0, 1fr));
-    grid-auto-flow: dense;
+    gap: 12px;
     height: calc(100vh - var(--header-h) - var(--footer-h));
   }
-  #youtube-section {
-    grid-row: span 2;
+
+  /* 1列目: カレンダー（1列 x 2行） */
+  #calendar-section {
+    grid-column: 1 / 2;
+    grid-row: 1 / 3;
   }
-  /* 大型のカレンダー・センサーは2行分使う場合にも柔軟に対応できるよう設定可 */
+
+  /* 2列目・上: タスク (Row 1, Col 2) */
+  #task-section {
+    grid-column: 2 / 3;
+    grid-row: 1 / 2;
+  }
+
+  /* 3列目・上: メモ (Row 1, Col 3) */
+  #memo-section {
+    grid-column: 3 / 4;
+    grid-row: 1 / 2;
+  }
+
+  /* 2列目と3列目の下: センサー (Row 2, Col 2〜4) */
+  #sensor-section {
+    grid-column: 2 / 4;
+    grid-row: 2 / 3;
+  }
+
+  /* 4列目: YouTube (1列 x 2行: 上下) */
+  #youtube-section {
+    grid-column: 4 / 5;
+    grid-row: 1 / 3;
+  }
+
+  /* 統合アジェンダ（設定でONの場合の表示位置バックアップ） */
+  #agenda-section {
+    grid-column: 2 / 4;
+    grid-row: 1 / 2;
+  }
 }
 
 /* タブレット・スマホ用のレスポンシブスクロール許可 */
