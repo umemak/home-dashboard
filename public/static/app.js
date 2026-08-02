@@ -983,17 +983,26 @@ document.addEventListener('DOMContentLoaded', function() {
   async function loadYoutubeVideos() {
     var data = await api('GET', '/api/youtube');
     state.youtubeVideos = data || [];
+    if (state.youtubeVideos.length) {
+      var exists = state.youtubeVideos.some(function(v) { return v.youtube_id === state.currentYoutubeId; });
+      if (!exists) {
+        state.currentYoutubeId = null;
+      }
+    } else {
+      state.currentYoutubeId = null;
+    }
     renderYoutubePlaylist();
     if (state.youtubeVideos.length && !state.currentYoutubeId) {
-      playYoutubeVideo(state.youtubeVideos[0].youtube_id);
+      playYoutubeVideo(state.youtubeVideos[0].youtube_id, false);
     }
   }
 
-  function playYoutubeVideo(ytId) {
+  function playYoutubeVideo(ytId, autoPlay) {
+    if (autoPlay === undefined) autoPlay = true;
     state.currentYoutubeId = ytId;
     var iframe = $('yt-iframe');
     if (iframe) {
-      iframe.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(ytId) + '?autoplay=1&rel=0';
+      iframe.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(ytId) + '?autoplay=' + (autoPlay ? '1' : '0') + '&rel=0';
     }
     renderYoutubePlaylist();
   }
