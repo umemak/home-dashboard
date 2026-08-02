@@ -1479,13 +1479,11 @@ document.addEventListener('DOMContentLoaded', function() {
       return b.ts.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
     });
 
-    var datasets = [];
-    var scales = {
-      x: {
-        ticks: { color: '#a7a9be', font: { size: 10 }, maxTicksLimit: 10, maxRotation: 0 },
-        grid: { color: '#2a2a4a' },
-      }
-    };
+    var xAxes = [{
+      ticks: { fontColor: '#a7a9be', fontSize: 10, maxTicksLimit: 10, maxRotation: 0 },
+      gridLines: { color: '#2a2a4a' }
+    }];
+    var yAxes = [];
 
     var firstYAxis = true;
 
@@ -1510,21 +1508,22 @@ document.addEventListener('DOMContentLoaded', function() {
           borderWidth: 2,
           pointRadius: values.length > 100 ? 0 : 2,
           pointHoverRadius: 4,
-          tension: 0.3,
+          lineTension: 0.3,
           fill: false,
           yAxisID: yAxisId,
         });
 
-        scales[yAxisId] = {
+        yAxes.push({
+          id: yAxisId,
           type: 'linear',
           display: true,
           position: cfg.position || 'left',
-          ticks: { color: cfg.borderColor, font: { size: 10 } },
-          grid: {
+          ticks: { fontColor: cfg.borderColor, fontSize: 10 },
+          gridLines: {
             color: firstYAxis ? '#2a2a4a' : 'transparent',
             drawOnChartArea: firstYAxis,
           }
-        };
+        });
         firstYAxis = false;
       }
     });
@@ -1539,6 +1538,10 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
+    if (typeof Chart === 'undefined') {
+      return;
+    }
+
     sensorChart = new Chart(canvas, {
       type: 'line',
       data: {
@@ -1549,24 +1552,23 @@ document.addEventListener('DOMContentLoaded', function() {
         responsive: true,
         maintainAspectRatio: false,
         animation: { duration: 400 },
-        interaction: {
+        tooltips: {
           mode: 'index',
           intersect: false,
+          backgroundColor: '#1a1a2e',
+          titleFontColor: '#a7a9be',
+          bodyFontColor: '#fffffe',
+          borderColor: '#2a2a4a',
+          borderWidth: 1,
         },
-        plugins: {
-          legend: {
-            display: datasets.length > 1,
-            labels: { color: '#a7a9be', font: { size: 11 }, boxWidth: 12 }
-          },
-          tooltip: {
-            backgroundColor: '#1a1a2e',
-            titleColor: '#a7a9be',
-            bodyColor: '#fffffe',
-            borderColor: '#2a2a4a',
-            borderWidth: 1,
-          }
+        legend: {
+          display: datasets.length > 1,
+          labels: { fontColor: '#a7a9be', fontSize: 11, boxWidth: 12 }
         },
-        scales: scales
+        scales: {
+          xAxes: xAxes,
+          yAxes: yAxes
+        }
       }
     });
   }

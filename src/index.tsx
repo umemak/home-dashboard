@@ -1228,7 +1228,7 @@ app.get('/', async (c) => {
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.bundle.min.js"></script>
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="/static/app.js"></script>
 </body>
