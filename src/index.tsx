@@ -1229,8 +1229,9 @@ app.get('/', async (c) => {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/regenerator-runtime@0.13.11/runtime.min.js"></script>
 <script src="https://www.youtube.com/iframe_api"></script>
-<script src="/static/app.js"></script>
+<script src="/static/app.es5.js"></script>
 </body>
 </html>`
   return c.html(html)
