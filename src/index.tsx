@@ -1087,7 +1087,7 @@ app.get('/', async (c) => {
   </main>
 
   <footer id="main-footer">
-    <button id="settings-btn" class="footer-btn"><i class="fas fa-cog"></i> 設定</button>
+    <button id="settings-btn" class="footer-btn" onclick="if(window.openSettingsModal)window.openSettingsModal();" ontouchend="if(window.openSettingsModal){event.preventDefault();window.openSettingsModal();}"><i class="fas fa-cog"></i> 設定</button>
     <div id="footer-status"><span id="last-update">--</span></div>
     <div style="display:flex;gap:8px;align-items:center;">
       <span id="user-email" style="font-size:0.72rem;color:#a7a9be;"></span>

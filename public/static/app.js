@@ -822,25 +822,32 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // 設定
-  on($('settings-btn'), 'click', function() {
-    $('set-family').value = state.settings.family_name || '';
-    $('set-weather-key').value = state.settings.weather_api_key || '';
-    $('set-city').value = state.settings.city || 'Tokyo';
-    if ($('set-youtube-key')) $('set-youtube-key').value = state.settings.youtube_api_key || '';
-    if ($('update-msg')) $('update-msg').textContent = '';
-    if ($('check-update-btn')) $('check-update-btn').disabled = false;
+  function openSettingsModal() {
+    try {
+      $('set-family').value = state.settings.family_name || '';
+      $('set-weather-key').value = state.settings.weather_api_key || '';
+      $('set-city').value = state.settings.city || 'Tokyo';
+      if ($('set-youtube-key')) $('set-youtube-key').value = state.settings.youtube_api_key || '';
+      if ($('update-msg')) $('update-msg').textContent = '';
+      if ($('check-update-btn')) $('check-update-btn').disabled = false;
 
-    // ウィジェット表示チェックボックスの状態反映
-    var vis = getWidgetVisibility();
-    WIDGET_PANELS.forEach(function(panelId) {
-      var chk = $('set-vis-' + panelId);
-      if (chk) {
-        chk.checked = vis[panelId] !== false;
-      }
-    });
+      // ウィジェット表示チェックボックスの状態反映
+      var vis = getWidgetVisibility();
+      WIDGET_PANELS.forEach(function(panelId) {
+        var chk = $('set-vis-' + panelId);
+        if (chk) {
+          chk.checked = vis[panelId] !== false;
+        }
+      });
 
-    openModal('settings-modal');
-  });
+      openModal('settings-modal');
+    } catch(e) {
+      // フォールバック: エラーが起きても設定モーダルだけは開く
+      openModal('settings-modal');
+    }
+  }
+  window.openSettingsModal = openSettingsModal;
+  on($('settings-btn'), 'click', openSettingsModal);
   on($('settings-cancel'), 'click', closeAllModals);
   on($('settings-save'), 'click', async function() {
     saveWidgetVisibilityFromModal();
