@@ -1074,12 +1074,13 @@ app.get('/', async (c) => {
       <div class="panel-header">
         <i class="fas fa-grip-vertical drag-handle" title="ドラッグして並べ替え"></i>
         <h2><i class="fab fa-youtube" style="color:#ff0000;"></i> YouTube</h2>
+        <button id="yt-restart-btn" class="icon-btn" title="最初から再生"><i class="fas fa-redo"></i></button>
         <button id="yt-refresh-btn" class="icon-btn" title="プレイリスト更新"><i class="fas fa-sync-alt"></i></button>
         <button id="yt-add-btn" class="icon-btn add-btn" title="動画追加"><i class="fas fa-plus"></i></button>
         <button class="icon-btn panel-max-btn" title="最大化/元に戻す"><i class="fas fa-expand"></i></button>
       </div>
       <div id="yt-player-container">
-        <iframe id="yt-iframe" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        <div id="yt-player"></div>
       </div>
       <div id="yt-playlist"></div>
     </section>
@@ -1228,6 +1229,7 @@ app.get('/', async (c) => {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>`

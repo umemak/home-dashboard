@@ -1373,7 +1373,8 @@ textarea#memo-content {
   flex-shrink: 0;
 }
 
-#yt-iframe {
+#yt-player-container iframe,
+#yt-player {
   position: absolute;
   top: 0;
   left: 0;

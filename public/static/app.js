@@ -971,6 +971,118 @@ document.addEventListener('DOMContentLoaded', function() {
   // ─ YouTube ───────────────────────────────────
   state.youtubeVideos = [];
   state.currentYoutubeId = null;
+  var ytPlayer = null;
+  var ytProgressInterval = null;
+
+  function getPlaybackPositionMap() {
+    try {
+      return JSON.parse(localStorage.getItem('yt_playback_positions') || '{}');
+    } catch(e) {
+      return {};
+    }
+  }
+
+  function savePlaybackPosition(ytId, seconds) {
+    if (!ytId || typeof seconds !== 'number' || isNaN(seconds)) return;
+    var map = getPlaybackPositionMap();
+    // 終了間近（残り5秒以内）または開始5秒未満はクリア/0扱い
+    if (ytPlayer && ytPlayer.getDuration) {
+      var dur = ytPlayer.getDuration();
+      if (dur > 0 && dur - seconds < 5) {
+        delete map[ytId];
+        try { localStorage.setItem('yt_playback_positions', JSON.stringify(map)); } catch(e) {}
+        return;
+      }
+    }
+    if (seconds < 2) {
+      delete map[ytId];
+    } else {
+      map[ytId] = Math.floor(seconds);
+    }
+    try { localStorage.setItem('yt_playback_positions', JSON.stringify(map)); } catch(e) {}
+  }
+
+  function getSavedPosition(ytId) {
+    var map = getPlaybackPositionMap();
+    return map[ytId] || 0;
+  }
+
+  function startPositionTracker() {
+    if (ytProgressInterval) clearInterval(ytProgressInterval);
+    ytProgressInterval = setInterval(function() {
+      if (ytPlayer && ytPlayer.getCurrentTime && state.currentYoutubeId) {
+        try {
+          var stateNum = ytPlayer.getPlayerState();
+          // YT.PlayerState.PLAYING (1) または PAUSED (2)
+          if (stateNum === 1 || stateNum === 2) {
+            var curr = ytPlayer.getCurrentTime();
+            savePlaybackPosition(state.currentYoutubeId, curr);
+          }
+        } catch(e) {}
+      }
+    }, 2000);
+  }
+
+  function initYoutubePlayer(ytId, startSeconds, autoPlay) {
+    if (startSeconds === undefined) startSeconds = getSavedPosition(ytId);
+    if (autoPlay === undefined) autoPlay = true;
+    state.currentYoutubeId = ytId;
+
+    if (!window.YT || !window.YT.Player) {
+      // APIがまだロードされていない場合は再試行
+      setTimeout(function() { initYoutubePlayer(ytId, startSeconds, autoPlay); }, 200);
+      return;
+    }
+
+    if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
+      try {
+        if (autoPlay) {
+          ytPlayer.loadVideoById({ videoId: ytId, startSeconds: startSeconds });
+        } else {
+          ytPlayer.cueVideoById({ videoId: ytId, startSeconds: startSeconds });
+        }
+        renderYoutubePlaylist();
+        startPositionTracker();
+        return;
+      } catch(e) {
+        // エラー時は再作成にフォールバック
+      }
+    }
+
+    var playerContainer = $('yt-player-container');
+    if (playerContainer) {
+      playerContainer.innerHTML = '<div id="yt-player"></div>';
+    }
+
+    try {
+      ytPlayer = new YT.Player('yt-player', {
+        videoId: ytId,
+        playerVars: {
+          autoplay: autoPlay ? 1 : 0,
+          start: Math.floor(startSeconds),
+          rel: 0,
+          enablejsapi: 1
+        },
+        events: {
+          onReady: function(event) {
+            startPositionTracker();
+          },
+          onStateChange: function(event) {
+            if (event.data === 1 || event.data === 2) { // PLAYING / PAUSED
+              if (ytPlayer && ytPlayer.getCurrentTime && state.currentYoutubeId) {
+                savePlaybackPosition(state.currentYoutubeId, ytPlayer.getCurrentTime());
+              }
+            } else if (event.data === 0) { // ENDED
+              savePlaybackPosition(state.currentYoutubeId, 0);
+            }
+          }
+        }
+      });
+    } catch(e) {
+      console.warn('YT.Player init failed', e);
+    }
+    renderYoutubePlaylist();
+  }
 
   function extractYoutubeId(input) {
     if (!input) return null;
@@ -997,14 +1109,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  function playYoutubeVideo(ytId, autoPlay) {
+  function playYoutubeVideo(ytId, autoPlay, startSeconds) {
     if (autoPlay === undefined) autoPlay = true;
-    state.currentYoutubeId = ytId;
-    var iframe = $('yt-iframe');
-    if (iframe) {
-      iframe.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(ytId) + '?autoplay=' + (autoPlay ? '1' : '0') + '&rel=0';
-    }
-    renderYoutubePlaylist();
+    if (startSeconds === undefined) startSeconds = getSavedPosition(ytId);
+    initYoutubePlayer(ytId, startSeconds, autoPlay);
   }
 
   function renderYoutubePlaylist() {
@@ -1015,18 +1123,26 @@ document.addEventListener('DOMContentLoaded', function() {
       playlistEl.innerHTML = '<div class="empty-state"><i class="fab fa-youtube"></i>登録された動画はありません</div>';
       return;
     }
+    var savedPositions = getPlaybackPositionMap();
     state.youtubeVideos.forEach(function(v) {
       var item = document.createElement('div');
       var isActive = v.youtube_id === state.currentYoutubeId;
       item.className = 'yt-item' + (isActive ? ' active' : '');
       
       var thumbUrl = 'https://img.youtube.com/vi/' + encodeURIComponent(v.youtube_id) + '/default.jpg';
-      
+      var pos = savedPositions[v.youtube_id] || 0;
+      var posStr = '';
+      if (pos > 0) {
+        var m = Math.floor(pos / 60);
+        var s = Math.floor(pos % 60);
+        posStr = ' (' + m + ':' + (s < 10 ? '0' : '') + s + 'から)';
+      }
+
       item.innerHTML =
         '<img class="yt-thumb" src="' + thumbUrl + '" alt="thumb">' +
         '<div class="yt-info">' +
           '<div class="yt-title">' + escHtml(v.title) + '</div>' +
-          '<div class="yt-sub">ID: ' + escHtml(v.youtube_id) + '</div>' +
+          '<div class="yt-sub">ID: ' + escHtml(v.youtube_id) + posStr + '</div>' +
         '</div>' +
         '<button class="yt-del-btn" title="削除"><i class="fas fa-trash"></i></button>';
 
@@ -1036,7 +1152,7 @@ document.addEventListener('DOMContentLoaded', function() {
           deleteYoutubeVideo(v.id);
           return;
         }
-        playYoutubeVideo(v.youtube_id);
+        playYoutubeVideo(v.youtube_id, true);
       });
 
       playlistEl.appendChild(item);
@@ -1122,6 +1238,12 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // YouTube モーダル・ボタンのイベント登録
+  on($('yt-restart-btn'), 'click', function() {
+    if (state.currentYoutubeId) {
+      savePlaybackPosition(state.currentYoutubeId, 0);
+      playYoutubeVideo(state.currentYoutubeId, true, 0);
+    }
+  });
   on($('yt-refresh-btn'), 'click', async function() {
     var btn = $('yt-refresh-btn');
     var icon = btn ? btn.querySelector('i') : null;
