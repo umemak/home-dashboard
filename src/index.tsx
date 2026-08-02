@@ -557,7 +557,7 @@ app.get('/favicon.ico', (c) => {
 
 app.get('/sw.js', (c) => {
   const sw = `
-const CACHE = 'ouchi-v3';
+const CACHE = 'ouchi-v4';
 const STATIC = ['/static/style.css', '/static/app.js'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)));
@@ -567,14 +567,11 @@ self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // API・認証・HTMLページ・外部リソースは SW を素通り（e.respondWith 呼ばない）
-  // → SW内で fetch が失敗すると ERR_FAILED になるためブラウザに任せる
   if (url.pathname.startsWith('/api/') ||
       url.pathname.startsWith('/auth/') ||
       url.pathname === '/' ||
@@ -582,7 +579,6 @@ self.addEventListener('fetch', e => {
       url.origin !== self.location.origin) {
     return;
   }
-  // 静的アセットのみキャッシュ利用（取得失敗時はネットワークにフォールバック）
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => Response.error()))
   );
@@ -627,6 +623,116 @@ app.put('/api/memos/:id', async (c) => {
 })
 app.delete('/api/memos/:id', async (c) => {
   await c.env.DB.prepare('DELETE FROM memos WHERE id = ?').bind(c.req.param('id')).run()
+  return c.json({ ok: true })
+})
+
+// YouTube
+async function fetchYoutubeTitle(youtubeId: string, apiKey?: string): Promise<string> {
+  if (apiKey) {
+    try {
+      const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${youtubeId}&key=${apiKey}`)
+      if (res.ok) {
+        const data = await res.json() as any
+        if (data.items && data.items.length > 0) {
+          return data.items[0].snippet.title || ''
+        }
+      }
+    } catch (e) {}
+  }
+  try {
+    const res = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${youtubeId}&format=json`)
+    if (res.ok) {
+      const data = await res.json() as any
+      return data.title || ''
+    }
+  } catch (e) {}
+  return ''
+}
+
+app.get('/api/youtube', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    'SELECT * FROM youtube_videos ORDER BY id DESC'
+  ).all()
+  return c.json(results)
+})
+
+app.get('/api/youtube/search', async (c) => {
+  const q = c.req.query('q')?.trim()
+  if (!q) return c.json([])
+
+  const keyRow = await c.env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind('youtube_api_key').first() as { value: string } | null
+  const apiKey = keyRow?.value?.trim()
+
+  if (apiKey) {
+    try {
+      const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=12&type=video&q=${encodeURIComponent(q)}&key=${apiKey}`)
+      if (res.ok) {
+        const data = await res.json() as any
+        if (data.items) {
+          const results = data.items.map((item: any) => ({
+            id: item.id.videoId,
+            title: item.snippet.title,
+            channel: item.snippet.channelTitle,
+            thumbnail: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url
+          })).filter((item: any) => item.id)
+          return c.json(results)
+        }
+      }
+    } catch (e) {}
+  }
+
+  try {
+    const res = await fetch(`https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7'
+      }
+    })
+    const text = await res.text()
+    const match = text.match(/ytInitialData\s*=\s*({.+?});<\/script>/)
+    if (match && match[1]) {
+      const ytData = JSON.parse(match[1])
+      const items = ytData?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents || []
+      const results: any[] = []
+      for (const item of items) {
+        if (item.videoRenderer) {
+          const vr = item.videoRenderer
+          results.push({
+            id: vr.videoId,
+            title: vr.title?.runs?.[0]?.text || '',
+            channel: vr.ownerText?.runs?.[0]?.text || '',
+            thumbnail: vr.thumbnail?.thumbnails?.[0]?.url || `https://img.youtube.com/vi/${vr.videoId}/mqdefault.jpg`
+          })
+        }
+      }
+      return c.json(results.slice(0, 12))
+    }
+  } catch (e) {}
+
+  return c.json([])
+})
+
+app.post('/api/youtube', async (c) => {
+  const { title, youtube_id } = await c.req.json()
+  const ytId = youtube_id?.trim()
+  if (!ytId) return c.json({ error: 'YouTube IDまたはURLが必要です' }, 400)
+
+  let finalTitle = title?.trim()
+  if (!finalTitle || finalTitle.startsWith('動画 (') || finalTitle === '無題の動画') {
+    const keyRow = await c.env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind('youtube_api_key').first() as { value: string } | null
+    const fetchedTitle = await fetchYoutubeTitle(ytId, keyRow?.value)
+    if (fetchedTitle) finalTitle = fetchedTitle
+  }
+  if (!finalTitle) finalTitle = '動画 (' + ytId + ')'
+
+  const r = await c.env.DB.prepare(
+    'INSERT INTO youtube_videos (title, youtube_id) VALUES (?, ?) RETURNING *'
+  ).bind(finalTitle, ytId).first()
+  return c.json(r, 201)
+})
+
+app.delete('/api/youtube/:id', async (c) => {
+  await c.env.DB.prepare('DELETE FROM youtube_videos WHERE id = ?').bind(c.req.param('id')).run()
   return c.json({ ok: true })
 })
 
@@ -857,43 +963,91 @@ app.get('/', async (c) => {
 
   <!-- スマホ用タブナビ -->
   <nav id="tab-nav">
-    <button class="tab-btn active" data-tab="calendar-section"><i class="fas fa-calendar-alt"></i><span>カレンダー</span></button>
+    <button class="tab-btn active" data-tab="agenda-section"><i class="fas fa-layer-group"></i><span>アジェンダ</span></button>
+    <button class="tab-btn" data-tab="calendar-section"><i class="fas fa-calendar-alt"></i><span>カレンダー</span></button>
     <button class="tab-btn" data-tab="memo-section"><i class="fas fa-sticky-note"></i><span>メモ</span></button>
     <button class="tab-btn" data-tab="task-section"><i class="fas fa-tasks"></i><span>タスク</span></button>
     <button class="tab-btn" data-tab="sensor-section"><i class="fas fa-thermometer-half"></i><span>センサー</span></button>
+    <button class="tab-btn" data-tab="youtube-section"><i class="fab fa-youtube"></i><span>YouTube</span></button>
   </nav>
 
   <main id="main-content">
-    <section id="calendar-section" class="panel">
+    <!-- 統合アジェンダウィジェット -->
+    <section id="agenda-section" class="panel" draggable="true">
       <div class="panel-header">
+        <i class="fas fa-grip-vertical drag-handle" title="ドラッグして並べ替え"></i>
+        <h2><i class="fas fa-layer-group" style="color:var(--accent);"></i> デイリーアジェンダ</h2>
+        <div class="agenda-quick-add">
+          <button id="agenda-add-event-btn" class="icon-btn agenda-btn" title="予定追加"><i class="fas fa-calendar-plus"></i></button>
+          <button id="agenda-add-task-btn" class="icon-btn agenda-btn" title="タスク追加"><i class="fas fa-tasks"></i></button>
+          <button id="agenda-add-memo-btn" class="icon-btn agenda-btn" title="メモ追加"><i class="fas fa-sticky-note"></i></button>
+        </div>
+        <button class="icon-btn panel-max-btn" title="最大化/元に戻す"><i class="fas fa-expand"></i></button>
+      </div>
+      <div class="agenda-content">
+        <!-- 本日の予定 -->
+        <div class="agenda-block">
+          <div class="agenda-block-header">
+            <h3><i class="fas fa-calendar-day" style="color:#74b9ff;"></i> 本日の予定</h3>
+            <span id="agenda-today-date" class="agenda-date-badge"></span>
+          </div>
+          <div id="agenda-events-list"></div>
+        </div>
+        <!-- 本日のタスク -->
+        <div class="agenda-block">
+          <div class="agenda-block-header">
+            <h3><i class="fas fa-check-square" style="color:#6bcb77;"></i> 未完了タスク</h3>
+            <span id="agenda-task-count" class="agenda-count-badge"></span>
+          </div>
+          <div id="agenda-tasks-list"></div>
+        </div>
+        <!-- クイックメモ -->
+        <div class="agenda-block">
+          <div class="agenda-block-header">
+            <h3><i class="fas fa-sticky-note" style="color:#ffd93d;"></i> メモ</h3>
+          </div>
+          <div id="agenda-memos-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="calendar-section" class="panel" draggable="true">
+      <div class="panel-header">
+        <i class="fas fa-grip-vertical drag-handle" title="ドラッグして並べ替え"></i>
         <button id="cal-prev" class="icon-btn"><i class="fas fa-chevron-left"></i></button>
         <h2 id="cal-title">2025年1月</h2>
         <button id="cal-next" class="icon-btn"><i class="fas fa-chevron-right"></i></button>
         <button id="cal-add-btn" class="icon-btn add-btn" title="予定追加"><i class="fas fa-plus"></i></button>
+        <button class="icon-btn panel-max-btn" title="最大化/元に戻す"><i class="fas fa-expand"></i></button>
       </div>
       <div id="calendar-grid"></div>
       <div id="event-list"></div>
     </section>
 
-    <section id="memo-section" class="panel">
+    <section id="memo-section" class="panel" draggable="true">
       <div class="panel-header">
+        <i class="fas fa-grip-vertical drag-handle" title="ドラッグして並べ替え"></i>
         <h2><i class="fas fa-sticky-note"></i> メモ</h2>
         <button id="memo-add-btn" class="icon-btn add-btn"><i class="fas fa-plus"></i></button>
+        <button class="icon-btn panel-max-btn" title="最大化/元に戻す"><i class="fas fa-expand"></i></button>
       </div>
       <div id="memo-list"></div>
     </section>
 
-    <section id="task-section" class="panel">
+    <section id="task-section" class="panel" draggable="true">
       <div class="panel-header">
+        <i class="fas fa-grip-vertical drag-handle" title="ドラッグして並べ替え"></i>
         <h2><i class="fas fa-tasks"></i> タスク</h2>
         <button id="task-add-btn" class="icon-btn add-btn"><i class="fas fa-plus"></i></button>
+        <button class="icon-btn panel-max-btn" title="最大化/元に戻す"><i class="fas fa-expand"></i></button>
       </div>
       <div id="task-list"></div>
     </section>
 
     <!-- センサーパネル -->
-    <section id="sensor-section" class="panel">
+    <section id="sensor-section" class="panel" draggable="true">
       <div class="panel-header">
+        <i class="fas fa-grip-vertical drag-handle" title="ドラッグして並べ替え"></i>
         <h2><i class="fas fa-thermometer-half"></i> センサー</h2>
         <div class="sensor-range-btns">
           <button class="sensor-range-btn" data-hours="3">3h</button>
@@ -902,6 +1056,7 @@ app.get('/', async (c) => {
           <button class="sensor-range-btn" data-hours="72">72h</button>
         </div>
         <button id="sensor-refresh-btn" class="icon-btn" title="更新"><i class="fas fa-sync-alt"></i></button>
+        <button class="icon-btn panel-max-btn" title="最大化/元に戻す"><i class="fas fa-expand"></i></button>
       </div>
       <div id="sensor-cards"></div>
       <div id="sensor-chart-area">
@@ -910,6 +1065,20 @@ app.get('/', async (c) => {
           <canvas id="sensor-chart"></canvas>
         </div>
       </div>
+    </section>
+
+    <!-- YouTubeパネル -->
+    <section id="youtube-section" class="panel" draggable="true">
+      <div class="panel-header">
+        <i class="fas fa-grip-vertical drag-handle" title="ドラッグして並べ替え"></i>
+        <h2><i class="fab fa-youtube" style="color:#ff0000;"></i> YouTube</h2>
+        <button id="yt-add-btn" class="icon-btn add-btn" title="動画追加"><i class="fas fa-plus"></i></button>
+        <button class="icon-btn panel-max-btn" title="最大化/元に戻す"><i class="fas fa-expand"></i></button>
+      </div>
+      <div id="yt-player-container">
+        <iframe id="yt-iframe" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div>
+      <div id="yt-playlist"></div>
     </section>
   </main>
 
@@ -995,6 +1164,21 @@ app.get('/', async (c) => {
   </div>
 </div>
 
+<!-- モーダル: YouTube動画追加 -->
+<div id="youtube-modal" class="modal hidden">
+  <div class="modal-box yt-modal-box">
+    <h3><i class="fab fa-youtube" style="color:#ff0000;"></i> 動画・配信の検索＆追加</h3>
+    <div class="yt-search-bar">
+      <input id="yt-search-input" type="text" placeholder="キーワード検索 または YouTube URL / ID" class="modal-input">
+      <button id="yt-search-btn" class="btn btn-primary"><i class="fas fa-search"></i> 検索</button>
+    </div>
+    <div id="yt-search-results" class="yt-search-results hidden"></div>
+    <div class="modal-actions" style="margin-top: 16px;">
+      <button id="yt-cancel" class="btn btn-secondary">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <!-- モーダル: 設定 -->
 <div id="settings-modal" class="modal hidden">
   <div class="modal-box settings-box">
@@ -1008,7 +1192,28 @@ app.get('/', async (c) => {
     <label>都市名 (英語)
       <input id="set-city" type="text" class="modal-input" placeholder="Tokyo">
     </label>
-    <p class="settings-note">
+    <label>YouTube Data API v3 キー <span style="font-size:0.75rem;color:var(--text-secondary);">(任意・検索機能拡張用)</span>
+      <input id="set-youtube-key" type="text" class="modal-input" placeholder="YouTube Data APIキーを入力...">
+    </label>
+    <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+      <label style="display:block; margin-bottom:10px; font-weight:600;"><i class="fas fa-eye"></i> ウィジェット表示設定</label>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:0.88rem;">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="set-vis-agenda-section" checked> アジェンダ</label>
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="set-vis-calendar-section" checked> カレンダー</label>
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="set-vis-memo-section" checked> メモ</label>
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="set-vis-task-section" checked> タスク</label>
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="set-vis-sensor-section" checked> センサー</label>
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="set-vis-youtube-section" checked> YouTube</label>
+      </div>
+    </div>
+    <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+      <label style="display:block; margin-bottom:8px;">アプリの更新</label>
+      <button id="check-update-btn" type="button" class="btn btn-secondary" onclick="if(window.performAppUpdate)window.performAppUpdate(event);" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px; background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border); cursor:pointer;">
+        <i class="fas fa-sync-alt"></i> 最新版に更新
+      </button>
+      <div id="update-msg" style="font-size:0.8rem; margin-top:6px; color:var(--text-secondary); text-align:center;"></div>
+    </div>
+    <p class="settings-note" style="margin-top:12px;">
       <i class="fas fa-info-circle"></i>
       天気を表示するには <a href="https://openweathermap.org/api" target="_blank">openweathermap.org</a> の無料APIキーが必要です。
     </p>

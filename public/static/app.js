@@ -387,7 +387,7 @@ document.addEventListener('DOMContentLoaded', function() {
   async function loadEvents() {
     try {
       var data = await api('GET', '/api/calendar');
-      if (data) { state.events = data; renderCalendar(); }
+      if (data) { state.events = data; renderCalendar(); renderAgenda(); }
     } catch(e) {}
   }
 
@@ -435,7 +435,7 @@ document.addEventListener('DOMContentLoaded', function() {
   async function loadMemos() {
     try {
       var data = await api('GET', '/api/memos');
-      if (data) { state.memos = data; renderMemos(); }
+      if (data) { state.memos = data; renderMemos(); renderAgenda(); }
     } catch(e) {}
   }
 
@@ -476,8 +476,112 @@ document.addEventListener('DOMContentLoaded', function() {
   async function loadTasks() {
     try {
       var data = await api('GET', '/api/tasks');
-      if (data) { state.tasks = data; renderTasks(); }
+      if (data) { state.tasks = data; renderTasks(); renderAgenda(); }
     } catch(e) {}
+  }
+
+  // ─ デイリーアジェンダ ────────────────────────────
+  function renderAgenda() {
+    var todayStr = toDateStr(new Date());
+    var todayObj = new Date();
+    var daysJa = ['日', '月', '火', '水', '木', '金', '土'];
+
+    // 日付バッジ
+    var dateBadgeEl = $('agenda-today-date');
+    if (dateBadgeEl) {
+      dateBadgeEl.textContent = (todayObj.getMonth() + 1) + '月' + todayObj.getDate() + '日(' + daysJa[todayObj.getDay()] + ')';
+    }
+
+    // 1. 本日の予定
+    var evListEl = $('agenda-events-list');
+    if (evListEl) {
+      evListEl.innerHTML = '';
+      var todayEvents = state.events.filter(function(ev) {
+        var start = ev.date;
+        var end = ev.end_date || ev.date;
+        return todayStr >= start && todayStr <= end;
+      });
+      if (!todayEvents.length) {
+        evListEl.innerHTML = '<div class="empty-state mini"><i class="fas fa-calendar-check"></i> 本日の予定はありません</div>';
+      } else {
+        todayEvents.forEach(function(ev) {
+          var el = document.createElement('div');
+          el.className = 'agenda-event-item ' + (ev.color || 'blue');
+          el.innerHTML =
+            (ev.time ? '<span class="agenda-time-badge">' + escHtml(ev.time) + '</span>' : '<span class="agenda-time-badge all-day">終日</span>') +
+            '<span class="agenda-event-title">' + escHtml(ev.title) + '</span>' +
+            '<button class="agenda-item-del" title="削除"><i class="fas fa-times"></i></button>';
+          el.querySelector('.agenda-item-del').addEventListener('click', async function(e) {
+            e.stopPropagation();
+            if (confirm('「' + ev.title + '」を削除しますか？')) {
+              await api('DELETE', '/api/calendar/' + ev.id);
+              await loadEvents();
+            }
+          });
+          evListEl.appendChild(el);
+        });
+      }
+    }
+
+    // 2. 未完了タスク
+    var taskListEl = $('agenda-tasks-list');
+    var taskCountEl = $('agenda-task-count');
+    if (taskListEl) {
+      taskListEl.innerHTML = '';
+      var uncompletedTasks = state.tasks.filter(function(t) { return !t.done; });
+      if (taskCountEl) {
+        taskCountEl.textContent = uncompletedTasks.length ? (uncompletedTasks.length + '件') : '0件';
+      }
+      if (!uncompletedTasks.length) {
+        taskListEl.innerHTML = '<div class="empty-state mini"><i class="fas fa-check-circle"></i> 未完了のタスクはありません</div>';
+      } else {
+        uncompletedTasks.forEach(function(task) {
+          var isOverdue = task.due_date && task.due_date < todayStr;
+          var el = document.createElement('div');
+          el.className = 'agenda-task-item';
+          el.innerHTML =
+            '<div class="task-check" title="完了にする"></div>' +
+            '<div class="agenda-task-info">' +
+              '<span class="agenda-task-title">' + escHtml(task.title) + '</span>' +
+              (task.due_date ? '<span class="task-due' + (isOverdue ? ' overdue' : '') + '">' + (isOverdue ? '⚠ ' : '') + formatDateJa(task.due_date) + '</span>' : '') +
+            '</div>' +
+            '<span class="task-priority ' + (task.priority || 'normal') + '"></span>';
+          el.querySelector('.task-check').addEventListener('click', async function() {
+            await api('PUT', '/api/tasks/' + task.id, { done: true });
+            await loadTasks();
+          });
+          taskListEl.appendChild(el);
+        });
+      }
+    }
+
+    // 3. メモ
+    var memoListEl = $('agenda-memos-list');
+    if (memoListEl) {
+      memoListEl.innerHTML = '';
+      if (!state.memos.length) {
+        memoListEl.innerHTML = '<div class="empty-state mini"><i class="fas fa-sticky-note"></i> メモはありません</div>';
+      } else {
+        var sortedMemos = state.memos.slice().sort(function(a, b) {
+          return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+        }).slice(0, 4);
+        sortedMemos.forEach(function(memo) {
+          var el = document.createElement('div');
+          el.className = 'agenda-memo-card ' + (memo.color || 'yellow') + (memo.pinned ? ' pinned' : '');
+          el.innerHTML =
+            '<div class="agenda-memo-text">' + escHtml(memo.content) + '</div>' +
+            (memo.pinned ? '<i class="fas fa-thumbtack agenda-pin-icon"></i>' : '');
+          el.addEventListener('click', function() {
+            state.editMemoId = memo.id;
+            $('memo-content').value = memo.content;
+            state.selectedColor = memo.color || 'yellow';
+            highlightColor('color-btn', state.selectedColor);
+            openModal('memo-modal');
+          });
+          memoListEl.appendChild(el);
+        });
+      }
+    }
   }
 
   // ─ モーダル ───────────────────────────────────
@@ -605,24 +709,129 @@ document.addEventListener('DOMContentLoaded', function() {
     renderCalendar();
   });
 
+  // ─ ウィジェット表示・非表示管理 ──────────────
+  var WIDGET_PANELS = [
+    'agenda-section',
+    'calendar-section',
+    'memo-section',
+    'task-section',
+    'sensor-section',
+    'youtube-section'
+  ];
+
+  function getWidgetVisibility() {
+    var vis = {};
+    try {
+      var saved = localStorage.getItem('widget_visibility');
+      if (saved) vis = JSON.parse(saved);
+    } catch(e) {}
+    return vis;
+  }
+
+  function applyWidgetVisibility() {
+    var vis = getWidgetVisibility();
+    WIDGET_PANELS.forEach(function(panelId) {
+      var isVisible = vis[panelId] !== false;
+      var panel = $(panelId);
+      if (panel) {
+        panel.classList.toggle('widget-hidden', !isVisible);
+      }
+      var tabBtn = document.querySelector('.tab-btn[data-tab="' + panelId + '"]');
+      if (tabBtn) {
+        tabBtn.style.display = isVisible ? '' : 'none';
+      }
+    });
+  }
+
+  function saveWidgetVisibilityFromModal() {
+    var vis = {};
+    WIDGET_PANELS.forEach(function(panelId) {
+      var chk = $('set-vis-' + panelId);
+      if (chk) {
+        vis[panelId] = chk.checked;
+      }
+    });
+    try {
+      localStorage.setItem('widget_visibility', JSON.stringify(vis));
+    } catch(e) {}
+    applyWidgetVisibility();
+  }
+
   // 設定
   on($('settings-btn'), 'click', function() {
     $('set-family').value = state.settings.family_name || '';
     $('set-weather-key').value = state.settings.weather_api_key || '';
     $('set-city').value = state.settings.city || 'Tokyo';
+    if ($('set-youtube-key')) $('set-youtube-key').value = state.settings.youtube_api_key || '';
+    if ($('update-msg')) $('update-msg').textContent = '';
+    if ($('check-update-btn')) $('check-update-btn').disabled = false;
+
+    // ウィジェット表示チェックボックスの状態反映
+    var vis = getWidgetVisibility();
+    WIDGET_PANELS.forEach(function(panelId) {
+      var chk = $('set-vis-' + panelId);
+      if (chk) {
+        chk.checked = vis[panelId] !== false;
+      }
+    });
+
     openModal('settings-modal');
   });
   on($('settings-cancel'), 'click', closeAllModals);
   on($('settings-save'), 'click', async function() {
+    saveWidgetVisibilityFromModal();
     await api('PUT', '/api/settings', {
       family_name: $('set-family').value || 'おうちダッシュボード',
       weather_api_key: $('set-weather-key').value,
       city: $('set-city').value || 'Tokyo',
+      youtube_api_key: $('set-youtube-key') ? $('set-youtube-key').value : '',
     });
     closeAllModals();
     await loadSettings();
     await loadWeather();
   });
+
+  // 設定画面の更新チェックボタン
+  window.performAppUpdate = async function(e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    var msgEl = $('update-msg');
+    var btn = $('check-update-btn');
+    if (msgEl) msgEl.textContent = '更新を確認中...';
+    if (btn) btn.disabled = true;
+
+    try {
+      // 1. 全Cacheを削除
+      if ('caches' in window) {
+        var keys = await caches.keys();
+        await Promise.all(keys.map(function(k){ return caches.delete(k); }));
+      }
+      // 2. ServiceWorker解除
+      if ('serviceWorker' in navigator) {
+        var registrations = await navigator.serviceWorker.getRegistrations();
+        for (var reg of registrations) {
+          await reg.unregister();
+        }
+      }
+      if (msgEl) msgEl.textContent = '最新版を再読み込みします...';
+      setTimeout(function() {
+        // キャッシュ回避のためタイムスタンプを付与してリロード
+        var currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('_v', Date.now());
+        window.location.href = currentUrl.toString();
+      }, 300);
+    } catch(err) {
+      console.error('Update error:', err);
+      if (msgEl) msgEl.textContent = 'エラーが発生したため強制リロードします...';
+      setTimeout(function() { window.location.reload(true); }, 500);
+    }
+  };
+
+  var updateBtn = $('check-update-btn');
+  if (updateBtn) {
+    updateBtn.addEventListener('click', window.performAppUpdate);
+    updateBtn.addEventListener('touchend', window.performAppUpdate);
+  }
+
 
   // モーダル外クリック
   document.querySelectorAll('.modal').forEach(function(modal) {
@@ -645,6 +854,284 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     try { localStorage.removeItem('session_token'); } catch(e) {}
     window.location.href = '/login';
+  });
+
+  // ─ パネル並べ替え (Drag & Drop) ───────────────────
+  var draggedPanel = null;
+
+  function savePanelOrder() {
+    var mainContent = $('main-content');
+    if (!mainContent) return;
+    var order = Array.from(mainContent.children).map(function(panel) { return panel.id; });
+    try { localStorage.setItem('panel_order', JSON.stringify(order)); } catch(e) {}
+  }
+
+  function restorePanelOrder() {
+    var mainContent = $('main-content');
+    if (!mainContent) return;
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem('panel_order')); } catch(e) {}
+    if (!saved || !Array.isArray(saved)) return;
+
+    saved.forEach(function(id) {
+      var panel = $(id);
+      if (panel && panel.parentElement === mainContent) {
+        mainContent.appendChild(panel);
+      }
+    });
+  }
+
+  function initDragAndDrop() {
+    var panels = document.querySelectorAll('.panel');
+    var mainContent = $('main-content');
+    if (!mainContent) return;
+
+    restorePanelOrder();
+
+    // 最新のパネル一覧
+    var currentPanels = document.querySelectorAll('.panel');
+
+    currentPanels.forEach(function(panel) {
+      panel.addEventListener('dragstart', function(e) {
+        if (panel.classList.contains('maximized')) {
+          e.preventDefault();
+          return;
+        }
+        draggedPanel = panel;
+        panel.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', panel.id);
+      });
+
+      panel.addEventListener('dragend', function() {
+        panel.classList.remove('dragging');
+        document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('drag-over'); });
+        draggedPanel = null;
+        savePanelOrder();
+      });
+
+      panel.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        var targetPanel = e.target.closest('.panel');
+        if (draggedPanel && targetPanel && draggedPanel !== targetPanel) {
+          targetPanel.classList.add('drag-over');
+        }
+      });
+
+      panel.addEventListener('dragleave', function(e) {
+        var targetPanel = e.target.closest('.panel');
+        if (targetPanel) {
+          targetPanel.classList.remove('drag-over');
+        }
+      });
+
+      panel.addEventListener('drop', function(e) {
+        e.preventDefault();
+        var targetPanel = e.target.closest('.panel');
+        if (targetPanel) targetPanel.classList.remove('drag-over');
+
+        if (!draggedPanel || !targetPanel || draggedPanel === targetPanel) return;
+
+        var children = Array.from(mainContent.children);
+        var draggedIdx = children.indexOf(draggedPanel);
+        var targetIdx = children.indexOf(targetPanel);
+
+        if (draggedIdx < targetIdx) {
+          mainContent.insertBefore(draggedPanel, targetPanel.nextSibling);
+        } else {
+          mainContent.insertBefore(draggedPanel, targetPanel);
+        }
+        savePanelOrder();
+      });
+    });
+  }
+
+  initDragAndDrop();
+
+  // ─ パネル最大化トグル ─────────────────────────────
+  document.querySelectorAll('.panel-max-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var panel = btn.closest('.panel');
+      if (!panel) return;
+      var isMax = panel.classList.toggle('maximized');
+      var icon = btn.querySelector('i');
+      if (icon) {
+        icon.className = isMax ? 'fas fa-compress' : 'fas fa-expand';
+      }
+      btn.title = isMax ? '元に戻す' : '最大化';
+      // センサーパネル最大化時はグラフ再描画
+      if (panel.id === 'sensor-section') {
+        setTimeout(function() { drawSensorChart(); }, 250);
+      }
+    });
+  });
+
+  // ─ YouTube ───────────────────────────────────
+  state.youtubeVideos = [];
+  state.currentYoutubeId = null;
+
+  function extractYoutubeId(input) {
+    if (!input) return null;
+    var str = input.trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(str)) return str;
+    var match = str.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    return match ? match[1] : null;
+  }
+
+  async function loadYoutubeVideos() {
+    var data = await api('GET', '/api/youtube');
+    state.youtubeVideos = data || [];
+    renderYoutubePlaylist();
+    if (state.youtubeVideos.length && !state.currentYoutubeId) {
+      playYoutubeVideo(state.youtubeVideos[0].youtube_id);
+    }
+  }
+
+  function playYoutubeVideo(ytId) {
+    state.currentYoutubeId = ytId;
+    var iframe = $('yt-iframe');
+    if (iframe) {
+      iframe.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(ytId) + '?autoplay=1&rel=0';
+    }
+    renderYoutubePlaylist();
+  }
+
+  function renderYoutubePlaylist() {
+    var playlistEl = $('yt-playlist');
+    if (!playlistEl) return;
+    playlistEl.innerHTML = '';
+    if (!state.youtubeVideos.length) {
+      playlistEl.innerHTML = '<div class="empty-state"><i class="fab fa-youtube"></i>登録された動画はありません</div>';
+      return;
+    }
+    state.youtubeVideos.forEach(function(v) {
+      var item = document.createElement('div');
+      var isActive = v.youtube_id === state.currentYoutubeId;
+      item.className = 'yt-item' + (isActive ? ' active' : '');
+      
+      var thumbUrl = 'https://img.youtube.com/vi/' + encodeURIComponent(v.youtube_id) + '/default.jpg';
+      
+      item.innerHTML =
+        '<img class="yt-thumb" src="' + thumbUrl + '" alt="thumb">' +
+        '<div class="yt-info">' +
+          '<div class="yt-title">' + escHtml(v.title) + '</div>' +
+          '<div class="yt-sub">ID: ' + escHtml(v.youtube_id) + '</div>' +
+        '</div>' +
+        '<button class="yt-del-btn" title="削除"><i class="fas fa-trash"></i></button>';
+
+      item.addEventListener('click', function(e) {
+        if (e.target.closest('.yt-del-btn')) {
+          e.stopPropagation();
+          deleteYoutubeVideo(v.id);
+          return;
+        }
+        playYoutubeVideo(v.youtube_id);
+      });
+
+      playlistEl.appendChild(item);
+    });
+  }
+
+  async function performYoutubeSearch() {
+    var searchInput = $('yt-search-input');
+    var resultsEl = $('yt-search-results');
+    if (!searchInput || !resultsEl) return;
+    
+    var query = searchInput.value.trim();
+    if (!query) return;
+
+    var ytId = extractYoutubeId(query);
+    if (ytId) {
+      var res = await api('POST', '/api/youtube', { title: '', youtube_id: ytId });
+      if (res && res.id) {
+        searchInput.value = '';
+        resultsEl.innerHTML = '';
+        resultsEl.classList.add('hidden');
+        $('youtube-modal').classList.add('hidden');
+        await loadYoutubeVideos();
+        playYoutubeVideo(ytId);
+      } else {
+        alert('動画の追加に失敗しました。');
+      }
+      return;
+    }
+
+    resultsEl.classList.remove('hidden');
+    resultsEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);"><i class="fas fa-spinner fa-spin"></i> 検索中...</div>';
+
+    var results = await api('GET', '/api/youtube/search?q=' + encodeURIComponent(query));
+    if (!results || !results.length) {
+      resultsEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);">該当する動画が見つかりませんでした</div>';
+      return;
+    }
+
+    resultsEl.innerHTML = '';
+    results.forEach(function(item) {
+      var card = document.createElement('div');
+      card.className = 'yt-result-card';
+      
+      var isAdded = state.youtubeVideos.some(function(v) { return v.youtube_id === item.id; });
+
+      card.innerHTML =
+        '<img class="yt-result-thumb" src="' + escHtml(item.thumbnail) + '" alt="thumb">' +
+        '<div class="yt-result-info">' +
+          '<div class="yt-result-title">' + escHtml(item.title) + '</div>' +
+          '<div class="yt-result-channel"><i class="fas fa-user-circle"></i> ' + escHtml(item.channel || 'YouTube') + '</div>' +
+        '</div>' +
+        '<button class="btn btn-primary yt-result-add-btn' + (isAdded ? ' added' : '') + '"' + (isAdded ? ' disabled' : '') + '>' +
+          (isAdded ? '<i class="fas fa-check"></i> 追加済み' : '<i class="fas fa-plus"></i> 追加') +
+        '</button>';
+
+      var addBtn = card.querySelector('.yt-result-add-btn');
+      addBtn.addEventListener('click', async function(e) {
+        e.stopPropagation();
+        if (addBtn.disabled) return;
+        addBtn.disabled = true;
+        addBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        var res = await api('POST', '/api/youtube', { title: item.title, youtube_id: item.id });
+        if (res && res.id) {
+          addBtn.className = 'btn btn-primary yt-result-add-btn added';
+          addBtn.innerHTML = '<i class="fas fa-check"></i> 追加済み';
+          await loadYoutubeVideos();
+        } else {
+          addBtn.disabled = false;
+          addBtn.innerHTML = '<i class="fas fa-plus"></i> 追加';
+          alert('追加に失敗しました。');
+        }
+      });
+
+      resultsEl.appendChild(card);
+    });
+  }
+
+  async function deleteYoutubeVideo(id) {
+    if (!confirm('この動画を削除しますか？')) return;
+    await api('DELETE', '/api/youtube/' + id);
+    await loadYoutubeVideos();
+  }
+
+  // YouTube モーダル・ボタンのイベント登録
+  on($('yt-add-btn'), 'click', function() {
+    $('youtube-modal').classList.remove('hidden');
+    var input = $('yt-search-input');
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+    var resultsEl = $('yt-search-results');
+    if (resultsEl) {
+      resultsEl.innerHTML = '';
+      resultsEl.classList.add('hidden');
+    }
+  });
+  on($('yt-cancel'), 'click', function() { $('youtube-modal').classList.add('hidden'); });
+  on($('yt-search-btn'), 'click', performYoutubeSearch);
+  on($('yt-search-input'), 'keydown', function(e) {
+    if (e.keyCode === 13 || e.key === 'Enter') {
+      performYoutubeSearch();
+    }
   });
 
   // ─ タブ切り替え（スマホ・タブレット用）──────────
@@ -671,8 +1158,13 @@ document.addEventListener('DOMContentLoaded', function() {
       on(btn, 'click', function() { switchTab(btn.dataset.tab); });
     });
 
-    // 初期表示: カレンダー
-    switchTab('calendar-section');
+    // アジェンダ クイック追加ボタン
+    on($('agenda-add-event-btn'), 'click', function() { if ($('cal-add-btn')) $('cal-add-btn').click(); });
+    on($('agenda-add-task-btn'), 'click', function() { if ($('task-add-btn')) $('task-add-btn').click(); });
+    on($('agenda-add-memo-btn'), 'click', function() { if ($('memo-add-btn')) $('memo-add-btn').click(); });
+
+    // 初期表示: デイリーアジェンダ
+    switchTab('agenda-section');
   }
   initTabs();
 
@@ -989,12 +1481,13 @@ document.addEventListener('DOMContentLoaded', function() {
     state.calMonth = now.getMonth();
 
     await loadSettings();
-    await Promise.all([loadMemos(), loadTasks(), loadEvents()]);
+    applyWidgetVisibility();
+    await Promise.all([loadMemos(), loadTasks(), loadEvents(), loadYoutubeVideos()]);
     await loadWeather();
 
     setInterval(loadWeather, 30*60*1000);
     setInterval(async function() {
-      await Promise.all([loadMemos(), loadTasks(), loadEvents()]);
+      await Promise.all([loadMemos(), loadTasks(), loadEvents(), loadYoutubeVideos()]);
       $('last-update').textContent = '最終更新: ' + new Date().toLocaleTimeString('ja-JP');
     }, 5*60*1000);
 
