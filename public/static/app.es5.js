@@ -17,6 +17,44 @@ if (!String.prototype.padStart) {
   };
 }
 
+// String.prototype.endsWith polyfill
+if (!String.prototype.endsWith) {
+  String.prototype.endsWith = function (search, this_len) {
+    if (this_len === undefined || this_len > this.length) {
+      this_len = this.length;
+    }
+    return this.substring(this_len - search.length, this_len) === search;
+  };
+}
+
+// Object.values polyfill
+if (!Object.values) {
+  Object.values = function (obj) {
+    return Object.keys(obj).map(function (key) {
+      return obj[key];
+    });
+  };
+}
+
+// Object.assign polyfill
+if (typeof Object.assign !== 'function') {
+  Object.assign = function (target) {
+    if (target == null) throw new TypeError('Cannot convert undefined or null to object');
+    var to = Object(target);
+    for (var index = 1; index < arguments.length; index++) {
+      var nextSource = arguments[index];
+      if (nextSource != null) {
+        for (var nextKey in nextSource) {
+          if (Object.prototype.hasOwnProperty.call(nextSource, nextKey)) {
+            to[nextKey] = nextSource[nextKey];
+          }
+        }
+      }
+    }
+    return to;
+  };
+}
+
 // ─ セッショントークン ─────────────────────────────
 function getSessionToken() {
   try {
@@ -2162,6 +2200,7 @@ document.addEventListener('DOMContentLoaded', function () {
       return b.ts.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
     });
 
+    var datasets = [];
     var xAxes = [{
       ticks: { fontColor: '#a7a9be', fontSize: 10, maxTicksLimit: 10, maxRotation: 0 },
       gridLines: { color: '#2a2a4a' }
