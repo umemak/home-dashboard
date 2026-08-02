@@ -124,7 +124,21 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   function $(id) { return document.getElementById(id); }
-  function on(el, ev, fn) { if (el) el.addEventListener(ev, fn); }
+  function on(el, ev, fn) {
+    if (!el) return;
+    el.addEventListener(ev, fn);
+    if (ev === 'click') {
+      var touched = false;
+      el.addEventListener('touchstart', function() { touched = false; }, { passive: true });
+      el.addEventListener('touchmove', function() { touched = true; }, { passive: true });
+      el.addEventListener('touchend', function(e) {
+        if (!touched) {
+          e.preventDefault();
+          fn(e);
+        }
+      });
+    }
+  }
 
   // ─ 時計 ──────────────────────────────────────
   function updateClock() {
