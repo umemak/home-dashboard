@@ -1122,6 +1122,13 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // YouTube モーダル・ボタンのイベント登録
+  on($('yt-refresh-btn'), 'click', async function() {
+    var btn = $('yt-refresh-btn');
+    var icon = btn ? btn.querySelector('i') : null;
+    if (icon) icon.classList.add('fa-spin');
+    await loadYoutubeVideos();
+    if (icon) setTimeout(function() { icon.classList.remove('fa-spin'); }, 500);
+  });
   on($('yt-add-btn'), 'click', function() {
     $('youtube-modal').classList.remove('hidden');
     var input = $('yt-search-input');
