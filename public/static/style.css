@@ -1416,6 +1416,8 @@ textarea#memo-content {
   cursor: pointer;
   border: 1px solid transparent;
   transition: all .2s;
+  flex-shrink: 0;
+  min-height: 52px;
 }
 
 .yt-item:hover {
