@@ -399,6 +399,7 @@ html, body {
 /* パネル最大化表示 */
 .panel.maximized {
   display: flex !important;
+  flex-direction: column !important;
   position: fixed !important;
   top: 12px !important;
   left: 12px !important;
@@ -406,11 +407,13 @@ html, body {
   bottom: 12px !important;
   width: calc(100vw - 24px) !important;
   height: calc(100vh - 24px) !important;
+  max-height: calc(100vh - 24px) !important;
   z-index: 1000 !important;
   border-color: var(--accent) !important;
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), 0 0 15px rgba(66, 165, 245, 0.4) !important;
   grid-column: auto !important;
   grid-row: auto !important;
+  overflow: hidden !important;
 }
 
 .panel-header {
@@ -1395,15 +1398,24 @@ textarea#memo-content {
 }
 
 #yt-playlist {
-  flex: 1 1 auto;
+  flex: 1 1 0px;
   min-height: 0;
-  max-height: calc(100% - 60px);
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch;
   padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.panel.maximized #yt-player-container {
+  max-height: 60vh;
+  padding-top: 0;
+  height: 60vh;
+}
+.panel.maximized #yt-player-container iframe,
+.panel.maximized #yt-player {
+  height: 100%;
 }
 
 .yt-item {
