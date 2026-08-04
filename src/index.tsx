@@ -695,16 +695,13 @@ app.get('/api/youtube/search', async (c) => {
       const items = ytData?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents || []
       const results: any[] = []
       for (const item of items) {
-        if (item.videoRenderer) {
+        if (item.videoRenderer && item.videoRenderer.videoId) {
           const vr = item.videoRenderer
-          const rawThumb = vr.thumbnail?.thumbnails?.[vr.thumbnail?.thumbnails?.length - 1]?.url || vr.thumbnail?.thumbnails?.[0]?.url || ''
-          const cleanThumb = rawThumb.startsWith('//') ? ('https:' + rawThumb) : rawThumb
-          const thumbUrl = (cleanThumb && cleanThumb.startsWith('http')) ? cleanThumb : `https://img.youtube.com/vi/${vr.videoId}/mqdefault.jpg`
           results.push({
             id: vr.videoId,
             title: vr.title?.runs?.[0]?.text || '',
             channel: vr.ownerText?.runs?.[0]?.text || '',
-            thumbnail: thumbUrl
+            thumbnail: `https://img.youtube.com/vi/${vr.videoId}/mqdefault.jpg`
           })
         }
       }

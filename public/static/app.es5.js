@@ -1882,9 +1882,9 @@ document.addEventListener('DOMContentLoaded', function () {
               return v.youtube_id === item.id;
             });
 
-            var thumbUrl = item.thumbnail || ('https://img.youtube.com/vi/' + encodeURIComponent(item.id) + '/mqdefault.jpg');
+            var thumbUrl = 'https://img.youtube.com/vi/' + encodeURIComponent(item.id) + '/mqdefault.jpg';
 
-            card.innerHTML = '<img class="yt-result-thumb" src="' + thumbUrl.replace(/"/g, '&quot;') + '" alt="thumb">' + '<div class="yt-result-info">' + '<div class="yt-result-title">' + escHtml(item.title) + '</div>' + '<div class="yt-result-channel"><i class="fas fa-user-circle"></i> ' + escHtml(item.channel || 'YouTube') + '</div>' + '</div>' + '<button class="btn btn-primary yt-result-add-btn' + (isAdded ? ' added' : '') + '"' + (isAdded ? ' disabled' : '') + '>' + (isAdded ? '<i class="fas fa-check"></i> 追加済み' : '<i class="fas fa-plus"></i> 追加') + '</button>';
+            card.innerHTML = '<img class="yt-result-thumb" src="' + thumbUrl + '" alt="thumb">' + '<div class="yt-result-info">' + '<div class="yt-result-title">' + escHtml(item.title) + '</div>' + '<div class="yt-result-channel"><i class="fas fa-user-circle"></i> ' + escHtml(item.channel || 'YouTube') + '</div>' + '</div>' + '<button class="btn btn-primary yt-result-add-btn' + (isAdded ? ' added' : '') + '"' + (isAdded ? ' disabled' : '') + '>' + (isAdded ? '<i class="fas fa-check"></i> 追加済み' : '<i class="fas fa-plus"></i> 追加') + '</button>';
 
             var addBtn = card.querySelector('.yt-result-add-btn');
             on(addBtn, 'click', function callee$3$0(e) {

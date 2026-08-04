@@ -1271,10 +1271,10 @@ document.addEventListener('DOMContentLoaded', function() {
       
       var isAdded = state.youtubeVideos.some(function(v) { return v.youtube_id === item.id; });
 
-      var thumbUrl = item.thumbnail || ('https://img.youtube.com/vi/' + encodeURIComponent(item.id) + '/mqdefault.jpg');
+      var thumbUrl = 'https://img.youtube.com/vi/' + encodeURIComponent(item.id) + '/mqdefault.jpg';
 
       card.innerHTML =
-        '<img class="yt-result-thumb" src="' + thumbUrl.replace(/"/g, '&quot;') + '" alt="thumb">' +
+        '<img class="yt-result-thumb" src="' + thumbUrl + '" alt="thumb">' +
         '<div class="yt-result-info">' +
           '<div class="yt-result-title">' + escHtml(item.title) + '</div>' +
           '<div class="yt-result-channel"><i class="fas fa-user-circle"></i> ' + escHtml(item.channel || 'YouTube') + '</div>' +
