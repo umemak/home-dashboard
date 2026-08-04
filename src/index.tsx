@@ -658,6 +658,7 @@ app.get('/api/youtube', async (c) => {
 
 app.get('/api/youtube/search', async (c) => {
   const q = c.req.query('q')?.trim()
+  const embeddable = c.req.query('embeddable') !== '0'
   if (!q) return c.json([])
 
   const keyRow = await c.env.DB.prepare('SELECT value FROM settings WHERE key = ?').bind('youtube_api_key').first() as { value: string } | null
@@ -665,7 +666,11 @@ app.get('/api/youtube/search', async (c) => {
 
   if (apiKey) {
     try {
-      const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=12&type=video&q=${encodeURIComponent(q)}&key=${apiKey}`)
+      let searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=12&type=video&q=${encodeURIComponent(q)}&key=${apiKey}`
+      if (embeddable) {
+        searchUrl += '&videoEmbeddable=true'
+      }
+      const res = await fetch(searchUrl)
       if (res.ok) {
         const data = await res.json() as any
         if (data.items) {
@@ -1175,6 +1180,11 @@ app.get('/', async (c) => {
     <div class="yt-search-bar">
       <input id="yt-search-input" type="text" placeholder="キーワード検索 または YouTube URL / ID" class="modal-input">
       <button id="yt-search-btn" class="btn btn-primary"><i class="fas fa-search"></i> 検索</button>
+    </div>
+    <div style="margin-top: 8px; font-size: 0.85rem; color: var(--text-secondary);">
+      <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+        <input type="checkbox" id="yt-search-embeddable" checked> 外部サイト再生可能のみ
+      </label>
     </div>
     <div id="yt-search-results" class="yt-search-results hidden"></div>
     <div class="modal-actions" style="margin-top: 16px;">

@@ -1258,7 +1258,10 @@ document.addEventListener('DOMContentLoaded', function() {
     resultsEl.classList.remove('hidden');
     resultsEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);"><i class="fas fa-spinner fa-spin"></i> 検索中...</div>';
 
-    var results = await api('GET', '/api/youtube/search?q=' + encodeURIComponent(query));
+    var embeddableEl = $('yt-search-embeddable');
+    var isEmbeddable = embeddableEl ? embeddableEl.checked : true;
+
+    var results = await api('GET', '/api/youtube/search?q=' + encodeURIComponent(query) + '&embeddable=' + (isEmbeddable ? '1' : '0'));
     if (!results || !results.length) {
       resultsEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);">該当する動画が見つかりませんでした</div>';
       return;

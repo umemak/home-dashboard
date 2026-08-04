@@ -1147,7 +1147,9 @@ document.addEventListener("DOMContentLoaded", function() {
       }
       resultsEl.classList.remove("hidden");
       resultsEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);"><i class="fas fa-spinner fa-spin"></i> \u691C\u7D22\u4E2D...</div>';
-      var results = yield api("GET", "/api/youtube/search?q=" + encodeURIComponent(query));
+      var embeddableEl = $("yt-search-embeddable");
+      var isEmbeddable = embeddableEl ? embeddableEl.checked : true;
+      var results = yield api("GET", "/api/youtube/search?q=" + encodeURIComponent(query) + "&embeddable=" + (isEmbeddable ? "1" : "0"));
       if (!results || !results.length) {
         resultsEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);">\u8A72\u5F53\u3059\u308B\u52D5\u753B\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3067\u3057\u305F</div>';
         return;

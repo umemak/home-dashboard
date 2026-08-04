@@ -1857,8 +1857,11 @@ document.addEventListener('DOMContentLoaded', function () {
           resultsEl.classList.remove('hidden');
           resultsEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-secondary);"><i class="fas fa-spinner fa-spin"></i> 検索中...</div>';
 
+          var embeddableEl = $('yt-search-embeddable');
+          var isEmbeddable = embeddableEl ? embeddableEl.checked : true;
+
           context$2$0.next = 28;
-          return regeneratorRuntime.awrap(api('GET', '/api/youtube/search?q=' + encodeURIComponent(query)));
+          return regeneratorRuntime.awrap(api('GET', '/api/youtube/search?q=' + encodeURIComponent(query) + '&embeddable=' + (isEmbeddable ? '1' : '0')));
 
         case 28:
           results = context$2$0.sent;
