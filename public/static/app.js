@@ -1282,8 +1282,7 @@ document.addEventListener('DOMContentLoaded', function() {
         '</button>';
 
       var addBtn = card.querySelector('.yt-result-add-btn');
-      addBtn.addEventListener('click', async function(e) {
-        e.stopPropagation();
+      on(addBtn, 'click', async function(e) {
         if (addBtn.disabled) return;
         addBtn.disabled = true;
         addBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';

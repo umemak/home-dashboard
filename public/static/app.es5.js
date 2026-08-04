@@ -1885,13 +1885,11 @@ document.addEventListener('DOMContentLoaded', function () {
             card.innerHTML = '<img class="yt-result-thumb" src="' + escHtml(item.thumbnail) + '" alt="thumb">' + '<div class="yt-result-info">' + '<div class="yt-result-title">' + escHtml(item.title) + '</div>' + '<div class="yt-result-channel"><i class="fas fa-user-circle"></i> ' + escHtml(item.channel || 'YouTube') + '</div>' + '</div>' + '<button class="btn btn-primary yt-result-add-btn' + (isAdded ? ' added' : '') + '"' + (isAdded ? ' disabled' : '') + '>' + (isAdded ? '<i class="fas fa-check"></i> 追加済み' : '<i class="fas fa-plus"></i> 追加') + '</button>';
 
             var addBtn = card.querySelector('.yt-result-add-btn');
-            addBtn.addEventListener('click', function callee$3$0(e) {
+            on(addBtn, 'click', function callee$3$0(e) {
               var res;
               return regeneratorRuntime.async(function callee$3$0$(context$4$0) {
                 while (1) switch (context$4$0.prev = context$4$0.next) {
                   case 0:
-                    e.stopPropagation();
-
                     if (!addBtn.disabled) {
                       context$4$0.next = 3;
                       break;
