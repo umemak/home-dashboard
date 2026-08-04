@@ -398,13 +398,14 @@ html, body {
 
 /* パネル最大化表示 */
 .panel.maximized {
+  display: flex !important;
   position: fixed !important;
   top: 12px !important;
   left: 12px !important;
   right: 12px !important;
   bottom: 12px !important;
-  width: auto !important;
-  height: auto !important;
+  width: calc(100vw - 24px) !important;
+  height: calc(100vh - 24px) !important;
   z-index: 1000 !important;
   border-color: var(--accent) !important;
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), 0 0 15px rgba(66, 165, 245, 0.4) !important;
