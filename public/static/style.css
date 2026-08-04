@@ -1547,7 +1547,20 @@ textarea#memo-content {
 
 /* タブレット: タブ切替対応 */
 @media (min-width: 600px) and (max-width: 1023px) {
-  #sensor-section, #youtube-section { min-height: 400px; }
+  #sensor-section { min-height: 400px; }
+  #youtube-section {
+    height: 80vh;
+    max-height: 700px;
+    display: flex;
+    flex-direction: column;
+  }
+  #yt-playlist {
+    flex: 1;
+    min-height: 0;
+    max-height: calc(80vh - 220px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   #sensor-chart-wrap { min-height: 200px; }
 }
 
