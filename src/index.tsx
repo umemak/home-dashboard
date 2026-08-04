@@ -557,7 +557,7 @@ app.get('/favicon.ico', (c) => {
 
 app.get('/sw.js', (c) => {
   const sw = `
-const CACHE = 'ouchi-v10';
+const CACHE = 'ouchi-v11';
 const STATIC = ['/static/style.css', '/static/app.js'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)));
@@ -929,7 +929,7 @@ app.get('/', async (c) => {
 <title>おうちダッシュボード</title>
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-apple.png">
-<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/style.css?v=11">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
 </head>
 <body>
