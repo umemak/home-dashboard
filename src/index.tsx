@@ -697,11 +697,14 @@ app.get('/api/youtube/search', async (c) => {
       for (const item of items) {
         if (item.videoRenderer) {
           const vr = item.videoRenderer
+          const rawThumb = vr.thumbnail?.thumbnails?.[vr.thumbnail?.thumbnails?.length - 1]?.url || vr.thumbnail?.thumbnails?.[0]?.url || ''
+          const cleanThumb = rawThumb.startsWith('//') ? ('https:' + rawThumb) : rawThumb
+          const thumbUrl = (cleanThumb && cleanThumb.startsWith('http')) ? cleanThumb : `https://img.youtube.com/vi/${vr.videoId}/mqdefault.jpg`
           results.push({
             id: vr.videoId,
             title: vr.title?.runs?.[0]?.text || '',
             channel: vr.ownerText?.runs?.[0]?.text || '',
-            thumbnail: vr.thumbnail?.thumbnails?.[0]?.url || `https://img.youtube.com/vi/${vr.videoId}/mqdefault.jpg`
+            thumbnail: thumbUrl
           })
         }
       }
