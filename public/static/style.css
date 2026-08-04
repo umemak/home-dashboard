@@ -1130,8 +1130,8 @@ textarea#memo-content {
   }
 
   /* タブ切り替え */
-  .panel { display: none; border-radius: 0; border: none; border-bottom: 1px solid var(--border); min-height: calc(100dvh - var(--header-h) - var(--tabnav-h) - var(--footer-h)); }
-  .panel.tab-active { display: flex; }
+  .panel { display: none; border-radius: 0; border: none; border-bottom: 1px solid var(--border); height: calc(100dvh - var(--header-h) - var(--tabnav-h) - var(--footer-h)); max-height: calc(100dvh - var(--header-h) - var(--tabnav-h) - var(--footer-h)); overflow: hidden; }
+  .panel.tab-active { display: flex; flex-direction: column; }
 
   /* カレンダーマス: 少し大きく */
   .cal-day { min-height: 38px; font-size: 0.9rem; }
@@ -1542,6 +1542,10 @@ textarea#memo-content {
   }
   .panel.tab-active {
     display: flex !important;
+    flex-direction: column !important;
+    height: calc(100dvh - var(--header-h) - var(--tabnav-h) - var(--footer-h)) !important;
+    max-height: calc(100dvh - var(--header-h) - var(--tabnav-h) - var(--footer-h)) !important;
+    overflow: hidden !important;
   }
 }
 
@@ -1549,15 +1553,15 @@ textarea#memo-content {
 @media (min-width: 600px) and (max-width: 1023px) {
   #sensor-section { min-height: 400px; }
   #youtube-section {
-    height: 80vh;
-    max-height: 700px;
+    height: 100%;
+    max-height: 100%;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
   #yt-playlist {
     flex: 1;
     min-height: 0;
-    max-height: calc(80vh - 220px);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
